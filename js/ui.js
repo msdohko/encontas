@@ -12,14 +12,21 @@ export const mesSeguinte = (comp, n = 1) => { let [a, m] = comp.split('-').map(N
 
 export const ROTULO_SITUACAO = { pago: 'Pago', atrasado: 'Atrasado', 'vence-logo': 'Vence logo', pendente: 'A pagar' };
 
-export function toast(msg) {
+/** Aviso rápido na parte de baixo. Com `acao`, mostra um botão (ex.: Desfazer) por 6 segundos. */
+export function toast(msg, acao) {
   document.querySelectorAll('.toast').forEach(x => x.remove());
   const t = document.createElement('div');
-  t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg;
+  t.className = 'toast'; t.setAttribute('role', 'status');
+  t.innerHTML = `<span>${esc(msg)}</span>${acao ? `<button type="button">${esc(acao.rotulo)}</button>` : ''}`;
+  if (acao) t.querySelector('button').addEventListener('click', () => { t.remove(); acao.fn(); });
   document.body.append(t);
-  setTimeout(() => t.classList.add('sai'), 2600);
-  setTimeout(() => t.remove(), 3000);
+  const dura = acao ? 6000 : 2600;
+  setTimeout(() => t.classList.add('sai'), dura);
+  setTimeout(() => t.remove(), dura + 400);
 }
+
+/** Data e hora curtas para o histórico: "24/10 13:28" */
+export const quando = iso => { const d = new Date(iso); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 
 /** Seletor de mês: ‹ outubro 2026 › */
 export function seletorMes(comp) {
@@ -46,6 +53,8 @@ export const ICONES = {
 ICONES.fechar = svg('<path d="M6 6l12 12M18 6 6 18"/>');
 ICONES.editar = svg('<path d="M4 20h4L19 9l-4-4L4 16z"/>');
 ICONES.dir2 = svg('<path d="m9 6 6 6-6 6"/>');
+ICONES.check = svg('<path d="m5 12.5 4.5 4.5L19 7.5"/>');
+ICONES.relogio = svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>');
 
 // ── Valores em reais digitados ("1.234,56", "1234.56", "R$ 80") ──────
 export function lerValor(txt) {

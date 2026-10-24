@@ -12,7 +12,11 @@ export function render(ctx) {
   let tema = 'auto'; try { tema = localStorage.getItem('tema') || 'auto'; } catch {}
   const membros = casa.membros.map(uid => ({ uid, ...(casa.membrosInfo?.[uid] || { nome: 'Membro' }) }));
   const opTema = (v, r) => `<label class="opcao"><input type="radio" name="tema" value="${v}" ${tema === v ? 'checked' : ''}><span>${r}</span></label>`;
+  const ultima = [...(d.atividades || [])].sort((a, b) => b.em.localeCompare(a.em))[0];
   return `
+  <section class="bloco">
+    <ul class="menu">${link('#/atividade', 'Atividade', ultima ? `última: ${esc(ultima.nome)}` : 'quem fez o quê')}</ul>
+  </section>
   <section class="bloco">
     <h2 class="bloco__titulo">Cadastros</h2>
     <ul class="menu">

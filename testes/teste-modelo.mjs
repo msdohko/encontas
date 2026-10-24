@@ -48,5 +48,24 @@ const p = M.painelQuinzenas(rec, [...ps, ...lancs], ['2026-11']);
 ok(p[0].temPrevisao && p[0].receita === 1586.67, 'painel marca quinzena com valor previsto');
 ok(p[1].gastos === 200 + 812.5 && p[1].acumulado === M.reais(M.cent(p[0].saldo) + M.cent(p[1].saldo)), 'saldo acumulado carrega da 1ª para a 2ª');
 
+console.log('\nPagar, adiar e histórico');
+const eu = { uid: 'u1', nome: 'Eduardo' };
+const base = M.gerarParcelas({ id: 'k', nome: 'Luz', valorTotal: 700, parcelas: 1, primeiraData: '2026-11-15' }, null)[0];
+const pg = M.pagar(base, { pagoPor: 'Amanda', data: '2026-11-14' }, eu, '2026-11-14T10:00:00Z');
+ok(pg.status === 'pago' && pg.pagoPor === 'Amanda' && pg.historico.at(-1).nome === 'Eduardo', 'pago por Amanda, marcado por Eduardo (fica registrado)');
+const pj = M.pagar(base, { pagoPor: 'Eduardo', data: '2026-11-20', valorPago: 721.4 }, eu, 'x');
+ok(pj.valor === 721.4 && pj.valorOriginal === 700, 'pagou com juros: valor muda e o original fica guardado');
+const df = M.desfazerPagamento(pg, eu, 'y');
+ok(df.status === 'pendente' && !df.pagoPor && df.historico.length === 2, 'desfazer volta a pendente e entra no histórico');
+const ad = M.adiar(base, '2026-12-03', 'Sem dinheiro agora', eu, 'z');
+ok(ad.competencia === '2026-12' && ad.quinzena === 1 && M.foiAdiado(ad), 'adiar de 15/11 para 03/12 muda para a 1ª quinzena de dezembro');
+const rn = M.adiar(base, '2026-11-25', 'Renegociei', eu, 'w', 650);
+ok(rn.valor === 650 && rn.valorOriginal === 700 && rn.historico.at(-1).valorPara === 650, 'renegociar com novo valor guarda o antigo');
+ok(!M.foiAdiado(pg), 'só pagar não conta como adiamento');
+const rec2 = { id: 'agua', nome: 'Água', valor: 90, diaVencimento: 10, inicio: '2026-11' };
+const la = M.gerarRecorrentes(rec2, '2026-12'); la[1] = M.adiar(la[1], '2026-12-20', null, eu, 'q');
+const sy = M.sincronizarRecorrente({ ...rec2, valor: 95 }, la, '2026-11', '2026-12');
+ok(sy.atualizar.find(l => l.id === 'agua_2026-12').data === '2026-12-20' && sy.atualizar.find(l => l.id === 'agua_2026-12').valor === 95, 'mudar a conta fixa não desfaz o adiamento');
+
 console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTudo certo');
 process.exit(falhas ? 1 : 0);

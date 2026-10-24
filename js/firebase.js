@@ -7,7 +7,7 @@ import {
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, writeBatch,
-  serverTimestamp, arrayUnion, Timestamp,
+  serverTimestamp, arrayUnion, Timestamp, query, orderBy, limit,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { CONFIG } from './config.js';
 
@@ -21,4 +21,5 @@ export const db = initializeFirestore(app, {
 export {
   GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut,
   doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, writeBatch, serverTimestamp, arrayUnion, Timestamp,
+  query, orderBy, limit,
 };

@@ -107,9 +107,14 @@ export async function carregarCasa(casaId, hojeComp) {
 async function lerFirestore(casaId) {
   const f = await api();
   const casa = (await f.getDoc(f.doc(f.db, 'casas', casaId))).data();
-  const listas = await Promise.all(COLECOES.map(c => f.getDocs(f.collection(f.db, 'casas', casaId, c))));
+  const col = c => f.collection(f.db, 'casas', casaId, c);
+  const [listas, ativ] = await Promise.all([
+    Promise.all(COLECOES.map(c => f.getDocs(col(c)))),
+    f.getDocs(f.query(col('atividades'), f.orderBy('em', 'desc'), f.limit(300))), // só as 300 mais recentes
+  ]);
   const dados = { casa: { id: casaId, ...casa } };
   COLECOES.forEach((c, i) => { dados[c] = listas[i].docs.map(d => ({ ...d.data(), id: d.id })); });
+  dados.atividades = ativ.docs.map(d => ({ ...d.data(), id: d.id }));
   return dados;
 }
 
@@ -175,7 +180,7 @@ async function demo() {
       membrosInfo: { demo: { nome: 'Eduardo' }, amanda: { nome: 'Amanda' } } },
     categorias: [...D.categorias, { id: 'assinaturas', nome: 'Assinaturas', cor: '#5E7CE2', ordem: 9 }],
     formas: [...D.formas, { id: 'dinheiro', nome: 'Dinheiro', tipo: 'dinheiro', diaVencimento: 1, limite: null, ativo: true }],
-    fontes: D.fontes, entradas: D.entradas, recorrentes: D.recorrentes, compras: D.compras, lancamentos: lanc,
+    fontes: D.fontes, entradas: D.entradas, recorrentes: D.recorrentes, compras: D.compras, lancamentos: lanc, atividades: [],
   };
   return cacheDemo;
 }

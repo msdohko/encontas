@@ -1,6 +1,7 @@
 import * as M from '../modelo.js';
 import { brl, esc, seletorMes, dataCurta, ROTULO_SITUACAO } from '../ui.js';
 import { painelDoMes, receitasDe } from './inicio.js';
+import { linhaConta, ligarContas } from './conta.js';
 
 export function render(ctx) {
   const d = ctx.dados, v = ctx.quinzenaVista;
@@ -27,19 +28,15 @@ export function render(ctx) {
     <span>${esc(r.descricao || fonte(r.fonteId))}<small>${r.previsto ? `previsto, cai ${dataCurta(r.data)}` : `entrou ${dataCurta(r.data)}`}</small></span>
     <strong>+ ${brl(r.valor)}</strong></li>`).join('')}</ul>` : ''}
   ${itens.length ? `<ul class="contas contas--tabela">
-    <li class="contas__cab" aria-hidden="true"><span>Vence</span><span>Conta</span><span>Categoria</span><span>Valor</span><span>Situação</span></li>
-    ${itens.map(l => `<li class="conta conta--${l.sit}">
-      <span class="conta__data">${dataCurta(l.data)}</span>
-      <span class="conta__nome">${esc(l.descricao)}<small>${esc(formas[l.formaId] || '')}</small></span>
-      <span class="conta__cat"><i style="background:${cats[l.categoriaId]?.cor || '#999'}"></i>${esc(cats[l.categoriaId]?.nome || 'Sem categoria')}</span>
-      <span class="conta__valor">${brl(l.valor)}</span>
-      <span class="selo selo--${l.sit}">${ROTULO_SITUACAO[l.sit]}</span></li>`).join('')}
+    <li class="contas__cab" aria-hidden="true"><span>Vence</span><span>Conta</span><span>Categoria</span><span>Valor</span><span>Situação</span><span></span></li>
+    ${itens.map(l => linhaConta(ctx, l, { comCategoria: true })).join('')}
   </ul>
-  <p class="nota">Marcar como pago e adiar chegam na Etapa 4.</p>`
+  <p class="nota">Toque numa conta para pagar, adiar ou ver o histórico. O ✓ marca como pago na hora.</p>`
   : `<div class="vazio"><p class="vazio__titulo">Nenhuma conta neste período.</p><p>Use o botão Lançar para adicionar.</p></div>`}`;
 }
 
 export function ligar(el, ctx) {
+  ligarContas(el, ctx);
   el.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => {
     ctx.quinzenaVista = b.dataset.q === 'mes' ? 'mes' : Number(b.dataset.q); ctx.render();
   }));

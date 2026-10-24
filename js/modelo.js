@@ -101,7 +101,7 @@ export function sincronizarRecorrente(rec, lancamentos, desde, ate) {
     if (!esperados.has(comp)) { r.apagar.push(l.id); continue; }
     const novo = lancamentoDaRecorrente(rec, comp);
     const valor = rec.valorVariavel && l.confirmado ? l.valor : novo.valor; // não desfaz valor já confirmado
-    const data = l.historico?.length ? l.data : novo.data;                  // não desfaz adiamento
+    const data = foiAdiado(l) ? l.data : novo.data;                         // não desfaz adiamento
     r.atualizar.push({ ...l, descricao: novo.descricao, valor, formaId: novo.formaId, categoriaId: novo.categoriaId,
       pessoa: novo.pessoa, data, competencia: competenciaDe(data), quinzena: quinzenaDe(data), origem: novo.origem });
   }
@@ -156,11 +156,30 @@ export function situacao(l, hojeISO) {
 }
 
 // ── Ações ────────────────────────────────────────────────────────────
-export function adiar(l, novaData, motivo, por, agoraISO) {
-  return { ...l, data: novaData, competencia: competenciaDe(novaData), quinzena: quinzenaDe(novaData),
-    historico: [...(l.historico || []), { de: l.data, para: novaData, motivo, por, em: agoraISO }] };
+/** Entrada de histórico: quem fez o quê e quando (uid, nome, em = data/hora ISO) */
+export const evento = (acao, quem, emISO, extra = {}) => ({ acao, uid: quem.uid, nome: quem.nome, em: emISO, ...extra });
+export const comEvento = (l, ev) => ({ ...l, historico: [...(l.historico || []), ev] });
+export const foiAdiado = l => (l.historico || []).some(h => h.acao === 'adiou' || (!h.acao && h.para));
+
+/** Adiar ou renegociar: muda a data (e a quinzena); com novoValor vira renegociação */
+export function adiar(l, novaData, motivo, quem, emISO, novoValor) {
+  const reneg = novoValor != null && cent(novoValor) !== cent(l.valor);
+  return comEvento({ ...l, data: novaData, competencia: competenciaDe(novaData), quinzena: quinzenaDe(novaData),
+    ...(reneg ? { valor: novoValor, valorOriginal: l.valorOriginal ?? l.valor } : {}) },
+  evento('adiou', quem, emISO, { de: l.data, para: novaData, motivo: motivo || null, ...(reneg ? { valorDe: l.valor, valorPara: novoValor } : {}) }));
 }
-export const marcarPago = (l, dataISO) => ({ ...l, status: 'pago', pagoEm: dataISO });
+
+/** Pagar: guarda quem pagou, quando e quanto (com juros/desconto, o valor muda e o original fica guardado) */
+export function pagar(l, { pagoPor, data, valorPago }, quem, emISO) {
+  const mudou = valorPago != null && cent(valorPago) !== cent(l.valor);
+  return comEvento({ ...l, status: 'pago', pagoEm: data, pagoPor, confirmado: true,
+    ...(mudou ? { valor: valorPago, valorOriginal: l.valorOriginal ?? l.valor } : {}) },
+  evento('pagou', quem, emISO, { pagoPor, data, ...(mudou ? { valorDe: l.valor, valorPara: valorPago } : {}) }));
+}
+export const desfazerPagamento = (l, quem, emISO) =>
+  comEvento({ ...l, status: 'pendente', pagoEm: null, pagoPor: null }, evento('desfez', quem, emISO, { pagoPor: l.pagoPor || null }));
+
+export const marcarPago = (l, dataISO) => ({ ...l, status: 'pago', pagoEm: dataISO }); // usado só nos dados de exemplo
 
 // ── Painel de quinzenas (saldo carregando de uma quinzena para a outra) ──
 export function painelQuinzenas(receitas, lancamentos, comps, saldoInicial = 0) {

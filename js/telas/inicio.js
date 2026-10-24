@@ -1,5 +1,6 @@
 import * as M from '../modelo.js';
 import * as A from '../acoes.js';
+import { linhaConta, ligarContas } from './conta.js';
 import { brl, esc, seletorMes, dataCurta, nomeMesCurto, ROTULO_SITUACAO, lerValor, valorParaCampo, toast } from '../ui.js';
 
 /** Competências do início do controle até `ate` (o saldo acumulado começa no início do controle) */
@@ -70,11 +71,7 @@ export function render(ctx) {
   const confirmar = paraConfirmar(ctx);
   ctx._confirmar = confirmar;
 
-  const item = l => `<li class="conta conta--${l.sit}">
-      <span class="conta__data">${dataCurta(l.data)}</span>
-      <span class="conta__nome">${esc(l.descricao)}<small>${esc(nomes[l.formaId] || '')}</small></span>
-      <span class="conta__valor">${l.confirmado === false ? '≈ ' : ''}${brl(l.valor)}</span>
-      <span class="selo selo--${l.sit}">${ROTULO_SITUACAO[l.sit]}</span></li>`;
+  const item = l => linhaConta(ctx, l);
 
   return `${confirmar.length ? `<section class="confirmar" aria-label="Para confirmar">
       <h2 class="bloco__titulo">Para confirmar <span class="contador contador--info">${confirmar.length}</span></h2>
@@ -101,6 +98,7 @@ export function render(ctx) {
 }
 
 export function ligar(el, ctx) {
+  ligarContas(el, ctx);
   el.querySelectorAll('.confirmar__item').forEach(li => li.querySelector('form').addEventListener('submit', async e => {
     e.preventDefault();
     const x = ctx._confirmar[Number(li.dataset.i)], valor = lerValor(e.target.valor.value);

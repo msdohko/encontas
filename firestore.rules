@@ -37,9 +37,15 @@ service cloud.firestore {
             && get(/databases/$(database)/documents/convites/$(request.resource.data.ultimoConvite)).data.expiraEm > request.time);
       allow delete: if logado() && resource.data.dono == request.auth.uid;
 
-      // Tudo que está dentro da casa: só membros (lançamentos têm validação extra)
+      // Tudo que está dentro da casa: só membros (lançamentos e atividade têm regras próprias)
       match /{colecao}/{docId} {
-        allow read, write: if membro(casaId) && colecao != 'lancamentos';
+        allow read, write: if membro(casaId) && !(colecao in ['lancamentos', 'atividades']);
+      }
+      // Atividade: registro permanente; cada um só assina o que fez, ninguém edita nem apaga
+      match /atividades/{id} {
+        allow read: if membro(casaId);
+        allow create: if membro(casaId) && request.resource.data.uid == request.auth.uid;
+        allow update, delete: if false;
       }
       match /lancamentos/{id} {
         allow read, delete: if membro(casaId);

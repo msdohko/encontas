@@ -6,6 +6,7 @@
 - Contas fixas e assinaturas lançadas sozinhas todo mês
 - Salário variável previsto pela média dos últimos 3 meses, confirmado quando cai
 - Saldo acumulado de uma quinzena para a outra, dívidas e limite livre dos cartões
+- Pagar com um toque, adiar e renegociar; cada conta guarda quem lançou, pagou ou mudou, e quando
 - Uma "casa" compartilhada entre duas ou mais pessoas, com login Google e convite por código
 
 Feito em HTML, CSS e JavaScript puro, com Firebase (Auth + Firestore) e hospedado no GitHub Pages.
@@ -22,7 +23,7 @@ node testes/teste-modelo.mjs     # testes das regras (quinzenas, parcelas, salá
 - [x] 1. Modelo de dados
 - [x] 2. Base: login, casa compartilhada, navegação celular/PC
 - [x] 3. Cadastros, assinaturas e lançamento rápido
-- [ ] 4. Pagar, adiar e renegociar
+- [x] 4. Pagar, adiar e renegociar, com histórico de quem fez o quê
 - [ ] 5. Parcelamentos (editar, quitar antes)
 - [ ] 6. Gastos do dia a dia
 - [ ] 7. Importar a planilha

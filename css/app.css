@@ -343,3 +343,54 @@ small { color: var(--tinta-2); font-size: .8125rem; }
 @media (max-width: 420px) { .lancar__linha { grid-template-columns: 1fr; } }
 .entrada__marca .entrada__slogan { margin-top: -.6rem; color: var(--pinho); font: 500 1.125rem var(--f-titulo); }
 .entrada__marca p:not(.entrada__slogan) { font-size: .9375rem; }
+
+/* ══ Etapa 4: pagar, adiar, histórico e atividade ═════════════════════ */
+.conta { grid-template-columns: 3.1rem 1fr auto 44px; grid-template-areas: "data nome valor pagar" "data nome selo pagar"; cursor: pointer; }
+.conta:focus-visible { outline: 2.5px solid var(--pinho); outline-offset: -2px; border-radius: 8px; }
+.conta__pagar { grid-area: pagar; justify-self: end; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
+  border: 0; background: none; box-shadow: inset 0 0 0 1.5px var(--linha); color: var(--tinta-2); cursor: pointer; }
+.conta__pagar svg { width: 18px; height: 18px; }
+.conta__pagar:hover { box-shadow: inset 0 0 0 1.5px var(--pago); color: var(--pago); }
+.conta__pagar--feito { background: var(--pago); color: var(--superficie); box-shadow: none; cursor: default; }
+@media (min-width: 900px) {
+  .contas--tabela .conta, .contas__cab { grid-template-columns: 4rem minmax(0, 2fr) minmax(0, 1.2fr) 8.5rem 6.5rem 44px; grid-template-areas: "data nome cat valor selo pagar"; }
+}
+.toast { display: flex; align-items: center; gap: 1rem; }
+.toast button { border: 0; background: none; color: var(--fundo); font: 700 .9375rem var(--f-texto); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: .25rem; }
+
+/* Detalhe */
+.detalhe__valor { margin: 0; display: flex; align-items: center; gap: .75rem; font: 700 2rem var(--f-titulo); letter-spacing: -.02em; }
+.detalhe__valor .selo { font-family: var(--f-texto); font-size: .875rem; }
+.detalhe__nota { margin: .2rem 0 0; color: var(--tinta-2); font-size: .875rem; }
+.detalhe__dados { margin: 1rem 0; display: grid; gap: 0; border-top: 1px solid var(--linha); }
+.detalhe__dados div { display: flex; justify-content: space-between; gap: 1rem; padding: .55rem 0; border-bottom: 1px solid var(--linha); }
+.detalhe__dados dt { color: var(--tinta-2); } .detalhe__dados dd { margin: 0; text-align: right; font-weight: 500; }
+.detalhe__dados dd small { display: block; font-weight: 400; }
+.detalhe__acoes { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1rem 0; }
+.detalhe__form { display: grid; gap: .9rem; padding: 1rem; margin-bottom: 1rem; border-radius: var(--raio); background: var(--superficie-2); box-shadow: 0 0 0 1px var(--linha); }
+.lancar__linha--2 { grid-template-columns: 1fr 1fr; }
+.link-perigo { border: 0; background: none; color: var(--atrasado); text-decoration: underline; cursor: pointer; padding: .5rem 0; font: inherit; }
+.detalhe__sub { font-size: 1rem; margin: 1.25rem 0 .5rem; }
+.historico { list-style: none; margin: 0; padding: 0 0 0 1rem; border-left: 2px solid var(--linha); display: grid; gap: .7rem; }
+.historico li { position: relative; display: flex; flex-direction: column; font-size: .9375rem; }
+.historico li::before { content: ''; position: absolute; left: calc(-1rem - 6px); top: .4rem; width: 10px; height: 10px; border-radius: 50%; background: var(--pinho); }
+.historico time { font-size: .8125rem; color: var(--tinta-2); }
+
+/* Atividade */
+.filtros { display: flex; flex-wrap: wrap; gap: .45rem; margin-bottom: 1rem; }
+.filtro { min-height: 36px; padding: 0 .9rem; border-radius: 999px; border: 0; background: var(--superficie); box-shadow: inset 0 0 0 1.5px var(--linha); font-weight: 500; cursor: pointer; }
+.filtro--ativo { background: var(--tinta); color: var(--fundo); box-shadow: none; }
+.ativ-dia + .ativ-dia { margin-top: 1.25rem; }
+.ativ-dia__titulo { font-size: .9375rem; color: var(--tinta-2); margin-bottom: .5rem; }
+.ativ { list-style: none; margin: 0; padding: .25rem 1rem; background: var(--superficie); border-radius: var(--raio); box-shadow: 0 0 0 1px var(--linha); }
+.ativ__item { display: flex; align-items: center; gap: .75rem; padding: .6rem 0; }
+.ativ__item + .ativ__item { border-top: 1px solid var(--linha); }
+.ativ__texto { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ativ__valor { color: var(--tinta-2); white-space: nowrap; }
+.ativ__item time { font-size: .8125rem; color: var(--tinta-2); }
+.avatar--peq { width: 30px; height: 30px; font-size: .875rem; }
+.ativ__item--pagou .avatar { background: color-mix(in srgb, var(--pago) 18%, transparent); color: var(--pago); }
+.ativ__item--adiou .avatar, .ativ__item--renegociou .avatar { background: var(--q2-fundo); color: var(--q2); }
+.ativ__item--excluiu .avatar, .ativ__item--cancelou .avatar { background: color-mix(in srgb, var(--atrasado) 15%, transparent); color: var(--atrasado); }
+.detalhe__form[hidden], .campo[hidden] { display: none; }
+.toast { width: max-content; max-width: min(440px, calc(100% - 32px)); }
