@@ -1,0 +1,53 @@
+rules_version = '2';
+// Regras do app encontas: cada pessoa só vê a(s) casa(s) de que é membro.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function logado() { return request.auth != null; }
+    function casa(casaId) { return get(/databases/$(database)/documents/casas/$(casaId)).data; }
+    function membro(casaId) { return logado() && request.auth.uid in casa(casaId).membros; }
+
+    // Perfil: cada um só mexe no seu
+    match /usuarios/{uid} {
+      allow read, write: if logado() && request.auth.uid == uid;
+    }
+
+    // Convites: qualquer pessoa logada pode ler UM código que já conhece (não pode listar todos)
+    match /convites/{codigo} {
+      allow get: if logado();
+      allow list: if false;
+      allow create: if logado() && membro(request.resource.data.casaId)
+                    && request.resource.data.criadoPor == request.auth.uid;
+      allow delete: if logado() && membro(resource.data.casaId);
+    }
+
+    match /casas/{casaId} {
+      allow read: if membro(casaId);
+      // Criar: só com você mesmo como único membro e dono
+      allow create: if logado() && request.resource.data.membros == [request.auth.uid]
+                    && request.resource.data.dono == request.auth.uid;
+      // Membros editam a casa, mas não trocam o dono
+      allow update: if membro(casaId) && request.resource.data.dono == resource.data.dono
+        // ...ou alguém entrando com um convite válido (só pode se adicionar)
+        || (logado()
+            && !(request.auth.uid in resource.data.membros)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['membros', 'membrosInfo', 'ultimoConvite'])
+            && request.resource.data.membros == resource.data.membros.concat([request.auth.uid])
+            && get(/databases/$(database)/documents/convites/$(request.resource.data.ultimoConvite)).data.casaId == casaId
+            && get(/databases/$(database)/documents/convites/$(request.resource.data.ultimoConvite)).data.expiraEm > request.time);
+      allow delete: if logado() && resource.data.dono == request.auth.uid;
+
+      // Tudo que está dentro da casa: só membros (lançamentos têm validação extra)
+      match /{colecao}/{docId} {
+        allow read, write: if membro(casaId) && colecao != 'lancamentos';
+      }
+      match /lancamentos/{id} {
+        allow read, delete: if membro(casaId);
+        allow create, update: if membro(casaId)
+          && request.resource.data.valor is number
+          && request.resource.data.quinzena in [1, 2]
+          && request.resource.data.status in ['pendente', 'pago'];
+      }
+    }
+  }
+}
