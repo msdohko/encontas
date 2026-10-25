@@ -394,3 +394,27 @@ small { color: var(--tinta-2); font-size: .8125rem; }
 .ativ__item--excluiu .avatar, .ativ__item--cancelou .avatar { background: color-mix(in srgb, var(--atrasado) 15%, transparent); color: var(--atrasado); }
 .detalhe__form[hidden], .campo[hidden] { display: none; }
 .toast { width: max-content; max-width: min(440px, calc(100% - 32px)); }
+
+/* ══ Etapa 5: parcelamentos ═══════════════════════════════════════════ */
+.dividas__sub, .compra__sub { margin-top: 1.5rem; }
+.contador--neutro { background: var(--tinta-2); }
+.aviso-bom { margin: 0 0 1rem; padding: .75rem 1rem; border-radius: var(--raio); background: color-mix(in srgb, var(--pago) 12%, var(--superficie)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pago) 35%, transparent); }
+.parcs { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+@media (min-width: 900px) { .parcs { grid-template-columns: repeat(2, 1fr); } }
+.parc { display: grid; gap: .35rem; padding: .9rem 1rem; border-radius: var(--raio); background: var(--superficie); box-shadow: 0 0 0 1px var(--linha); color: var(--tinta); text-decoration: none; }
+.parc:hover { box-shadow: 0 0 0 1.5px var(--tinta-2); }
+.parc__topo { display: flex; justify-content: space-between; gap: 1rem; font-weight: 600; }
+.parc__falta { font-family: var(--f-titulo); white-space: nowrap; }
+.parc .barra { margin: .15rem 0 0; }
+.parc .barra span { background: var(--pago); }
+.parc__info { font-size: .8125rem; color: var(--tinta-2); }
+.compra-resumo { padding: 1.1rem 1.2rem; margin-bottom: 1rem; border-radius: var(--raio); background: var(--superficie); box-shadow: 0 0 0 1px var(--linha); max-width: 640px; }
+.compra-resumo__falta { margin: 0 0 .5rem; display: flex; flex-direction: column; }
+.compra-resumo__falta span { font-size: .875rem; color: var(--tinta-2); }
+.compra-resumo__falta strong { font: 700 2.2rem var(--f-titulo); letter-spacing: -.02em; }
+.compra-resumo__info { margin: .35rem 0 0; color: var(--tinta-2); }
+.compra-resumo__info strong { color: var(--tinta); }
+.barra--grossa { height: 12px; }
+.barra--grossa span, .compra-resumo .barra span { background: var(--pago); }
+.compra__perigo { display: flex; flex-direction: column; align-items: flex-start; gap: .25rem; margin-top: 1.5rem; }
+.detalhe__dados dd small a { font-weight: 600; }

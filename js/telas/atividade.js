@@ -6,6 +6,7 @@ const VERBO = {
   lancou: 'lançou', pagou: 'pagou', desfez: 'desfez o pagamento de', adiou: 'adiou', renegociou: 'renegociou',
   confirmou: 'confirmou o valor de', entrada: 'registrou a entrada', 'confirmou-entrada': 'confirmou a entrada de',
   cadastrou: 'cadastrou', alterou: 'alterou', excluiu: 'excluiu', cancelou: 'cancelou a assinatura', revisou: 'confirmou que ainda usa',
+  'editou-compra': 'editou a compra', quitou: 'quitou antes', encerrou: 'encerrou as parcelas restantes de',
 };
 
 function texto(a) {
@@ -13,6 +14,8 @@ function texto(a) {
   if (a.acao === 'pagou' && a.pagoPor && a.pagoPor !== a.nome) t = `marcou ${a.descricao} como pago por ${a.pagoPor}`;
   if ((a.acao === 'adiou' || a.acao === 'renegociou') && a.para) t += ` para ${a.para.slice(8, 10)}/${a.para.slice(5, 7)}`;
   if (a.acao === 'lancou' && a.parcelas > 1) t += ` em ${a.parcelas}x`;
+  if (a.acao === 'quitou') t += ` (${a.parcelas} parcelas${a.economia > 0 ? `, economia de ${brl(a.economia)}` : ''})`;
+  if (a.acao === 'editou-compra' && a.parcelasDe && a.parcelasDe !== a.parcelas) t += `: ${a.parcelasDe}x para ${a.parcelas}x`;
   return t;
 }
 
@@ -46,7 +49,8 @@ export function render(ctx) {
       <span class="avatar avatar--letra avatar--peq" aria-hidden="true">${esc((a.nome || '?')[0])}</span>
       <span class="ativ__texto"><strong>${esc(a.nome)}</strong> ${esc(texto(a))}${a.valor != null ? ` <span class="ativ__valor">${brl(a.valor)}</span>` : ''}</span>
       <time>${quando(a.em).slice(6)}</time>
-      ${a.colecao === 'lancamentos' && ctx.dados.lancamentos.some(l => l.id === a.alvoId) ? `<button type="button" class="icone-btn" data-ver="${esc(a.alvoId)}" aria-label="Ver conta">${ICONES.dir2}</button>` : ''}
+      ${a.colecao === 'lancamentos' && ctx.dados.lancamentos.some(l => l.id === a.alvoId) ? `<button type="button" class="icone-btn" data-ver="${esc(a.alvoId)}" aria-label="Ver conta">${ICONES.dir2}</button>`
+        : a.colecao === 'compras' && ctx.dados.compras.some(c => c.id === a.alvoId) ? `<a class="icone-btn" href="#/compra/${esc(a.alvoId)}" aria-label="Ver compra">${ICONES.dir2}</a>` : ''}
     </li>`).join('')}</ul></section>`).join('')
   : `<div class="vazio"><p class="vazio__titulo">Nada por aqui ainda.</p><p>Assim que alguém lançar, pagar ou adiar uma conta, aparece aqui.</p></div>`}`;
 }

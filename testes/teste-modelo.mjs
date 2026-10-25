@@ -67,5 +67,26 @@ const la = M.gerarRecorrentes(rec2, '2026-12'); la[1] = M.adiar(la[1], '2026-12-
 const sy = M.sincronizarRecorrente({ ...rec2, valor: 95 }, la, '2026-11', '2026-12');
 ok(sy.atualizar.find(l => l.id === 'agua_2026-12').data === '2026-12-20' && sy.atualizar.find(l => l.id === 'agua_2026-12').valor === 95, 'mudar a conta fixa não desfaz o adiamento');
 
+console.log('\nParcelamentos');
+const tv = { id: 'tv', nome: 'TV', valorTotal: 2000, parcelas: 10, formaId: 'cs', categoriaId: 'lazer', primeiraData: '2026-11-15' };
+let pt = M.gerarParcelas(tv, { diaVencimento: 15 });
+pt = pt.map((l, i) => i < 3 ? M.pagar(l, { pagoPor: 'Eduardo', data: l.data }, eu, 'p') : l);
+let r = M.resumoCompra(tv, pt);
+ok(r.pagas === 3 && r.falta === 1400 && r.proxima.origem.parcela === 4 && r.termina === '2027-08-15', 'resumo: 3 de 10 pagas, falta R$ 1.400, termina em ago/27');
+const ed = M.editarCompra(tv, pt, { valorTotal: 2000, parcelas: 12 }, { diaVencimento: 15 }, eu, 'e');
+const pend = ed.salvar.filter(l => l.status !== 'pago');
+ok(pend.length === 9 && pend.reduce((s, l) => s + M.cent(l.valor), 0) === 140000 && pend.at(-1).data === '2027-10-15', 'mudar para 12x: os R$ 1.400 restantes viram 9 parcelas, a última em out/27');
+ok(ed.salvar.filter(l => l.status === 'pago').every(l => l.valor === 200 && l.descricao.endsWith('/12)')), 'parcelas pagas não mudam de valor, só o rótulo (x/12)');
+const ed2 = M.editarCompra(tv, pt, { parcelas: 8 }, { diaVencimento: 15 }, eu, 'e');
+ok(ed2.apagar.join() === 'tv_9,tv_10' && ed2.salvar.filter(l => l.status !== 'pago').length === 5, 'mudar para 8x apaga as parcelas 9 e 10 e redistribui');
+let erro = ''; try { M.editarCompra(tv, pt, { parcelas: 2 }, null, eu, 'e'); } catch (e) { erro = e.message; }
+ok(erro.includes('3 parcelas pagas'), 'não deixa ter menos parcelas do que as já pagas');
+const ed3 = M.editarCompra(tv, pt, { nome: 'TV Sala', formaId: 'nub' }, { diaVencimento: 8 }, eu, 'e');
+ok(ed3.salvar.find(l => l.id === 'tv_4').data === '2027-02-08' && ed3.salvar.find(l => l.id === 'tv_4').descricao === 'TV Sala (4/10)', 'trocar de cartão leva as pendentes para o vencimento do novo cartão');
+const an = M.anteciparCompra(tv, pt, { valorPago: 1300, data: '2026-12-20', pagoPor: 'Amanda' }, eu, 'a');
+ok(an.length === 7 && an.every(l => l.status === 'pago' && l.competencia === '2026-12' && l.quinzena === 2) && an.reduce((s, l) => s + M.cent(l.valor), 0) === 130000,
+  'quitar antes por R$ 1.300: as 7 restantes saem da 2ª quinzena de dezembro');
+ok(an[0].valorOriginal === 200, 'quitação guarda o valor original de cada parcela');
+
 console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTudo certo');
 process.exit(falhas ? 1 : 0);

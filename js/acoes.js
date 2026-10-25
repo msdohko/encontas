@@ -114,3 +114,41 @@ export async function excluirSimples(ctx, colecao, id) {
   await aplicar(ctx.dados, [{ apagar: colecao, id },
     atividade(ctx, 'excluiu', { colecao, id, descricao: `${o?.nome} (${NOME_COL[colecao]})`, valor: null })]);
 }
+
+// ── Parcelamentos (Etapa 5) ──────────────────────────────────────────
+const acharCompra = (ctx, id) => ctx.dados.compras.find(c => c.id === id);
+
+export async function editarCompra(ctx, compraId, mud) {
+  const c = acharCompra(ctx, compraId);
+  const forma = ctx.dados.formas.find(f => f.id === (mud.formaId || c.formaId));
+  const r = M.editarCompra(c, ctx.dados.lancamentos, mud, forma, quem(ctx), agora());
+  await aplicar(ctx.dados, [{ set: 'compras', dados: r.compra }, ...r.salvar.map(l => ({ set: 'lancamentos', dados: l })),
+    ...r.apagar.map(id => ({ apagar: 'lancamentos', id })),
+    atividade(ctx, 'editou-compra', { colecao: 'compras', id: compraId, descricao: r.compra.nome, valor: r.compra.valorTotal },
+      { parcelas: r.compra.parcelas, parcelasDe: c.parcelas, valorDe: c.valorTotal })]);
+  return r.compra;
+}
+
+export async function anteciparCompra(ctx, compraId, { valorPago, data, pagoPor }) {
+  const c = acharCompra(ctx, compraId);
+  const ls = M.anteciparCompra(c, ctx.dados.lancamentos, { valorPago, data, pagoPor: pagoPor || quem(ctx).nome }, quem(ctx), agora());
+  const original = ls.reduce((s, l) => s + M.cent(l.valorOriginal), 0);
+  await aplicar(ctx.dados, [...ls.map(l => ({ set: 'lancamentos', dados: l })),
+    atividade(ctx, 'quitou', { colecao: 'compras', id: compraId, descricao: c.nome, valor: valorPago },
+      { parcelas: ls.length, economia: M.reais(original - M.cent(valorPago)), pagoPor: pagoPor || quem(ctx).nome })]);
+  return { parcelas: ls.length, economia: M.reais(original - M.cent(valorPago)) };
+}
+
+/** Encerrar: apaga só as parcelas que faltam (ex.: devolveu o produto, cancelou). As pagas ficam no histórico. */
+export async function encerrarCompra(ctx, compraId) {
+  const c = acharCompra(ctx, compraId), pend = M.parcelasDa(compraId, ctx.dados.lancamentos).filter(l => l.status !== 'pago');
+  await aplicar(ctx.dados, [{ set: 'compras', dados: { ...c, encerradaEm: ctx.hoje } }, ...pend.map(l => ({ apagar: 'lancamentos', id: l.id })),
+    atividade(ctx, 'encerrou', { colecao: 'compras', id: compraId, descricao: c.nome, valor: pend.reduce((s, l) => s + l.valor, 0) }, { parcelas: pend.length })]);
+}
+
+/** Excluir tudo: para compra lançada errado. Some a compra e todas as parcelas, inclusive as pagas. */
+export async function excluirCompra(ctx, compraId) {
+  const c = acharCompra(ctx, compraId), ps = M.parcelasDa(compraId, ctx.dados.lancamentos);
+  await aplicar(ctx.dados, [{ apagar: 'compras', id: compraId }, ...ps.map(l => ({ apagar: 'lancamentos', id: l.id })),
+    atividade(ctx, 'excluiu', { colecao: 'compras', id: compraId, descricao: c.nome, valor: c.valorTotal })]);
+}

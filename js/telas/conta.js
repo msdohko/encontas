@@ -7,7 +7,7 @@ const nomeQ = (comp, q) => `${q}ª quinzena de ${nomeMes(comp).split(' ')[0]}`;
 const dataLonga = iso => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
 
 // ── Linha da lista ───────────────────────────────────────────────────
-export function linhaConta(ctx, l, { comCategoria = false } = {}) {
+export function linhaConta(ctx, l, { comCategoria = false, titulo = null } = {}) {
   const d = ctx.dados, sit = M.situacao(l, ctx.hoje);
   const forma = d.formas.find(f => f.id === l.formaId)?.nome;
   const cat = d.categorias.find(c => c.id === l.categoriaId);
@@ -15,7 +15,7 @@ export function linhaConta(ctx, l, { comCategoria = false } = {}) {
     .filter(Boolean).join(', ');
   return `<li class="conta conta--${sit}" data-lanc="${esc(l.id)}" tabindex="0" aria-label="${esc(l.descricao)}, ${brl(l.valor)}, ${ROTULO_SITUACAO[sit]}. Abrir detalhes">
     <span class="conta__data">${dataCurta(l.data)}</span>
-    <span class="conta__nome">${esc(l.descricao)}<small>${esc(sub)}</small></span>
+    <span class="conta__nome">${esc(titulo || l.descricao)}<small>${esc(sub)}</small></span>
     ${comCategoria ? `<span class="conta__cat"><i style="background:${esc(cat?.cor || '#999')}"></i>${esc(cat?.nome || 'Sem categoria')}</span>` : ''}
     <span class="conta__valor">${l.confirmado === false ? '≈ ' : ''}${brl(l.valor)}</span>
     <span class="selo selo--${sit}">${ROTULO_SITUACAO[sit]}</span>
@@ -48,6 +48,8 @@ function frase(h, l) {
     case 'desfez': return `${h.nome} desfez o pagamento`;
     case 'adiou': return `${h.nome} ${h.valorDe != null ? 'renegociou' : 'adiou'}: de ${dataCurta(h.de)} para ${dataCurta(h.para)}${v}${h.motivo ? `. Motivo: ${h.motivo}` : ''}`;
     case 'confirmou': return `${h.nome} confirmou o valor${v}`;
+    case 'antecipou': return `${h.nome} quitou antes${h.pagoPor && h.pagoPor !== h.nome ? ` (pago por ${h.pagoPor})` : ''}: vencia ${dataCurta(h.de)}, pago em ${dataCurta(h.para)}${v}`;
+    case 'editou': return `${h.nome} editou a compra${h.parcelasDe != null ? `: ${h.parcelasDe}x de ${brl(h.valorDe)} para ${h.parcelasPara}x de ${brl(h.valorPara)} no total` : ''}`;
     default: return h.para ? `Adiada de ${dataCurta(h.de)} para ${dataCurta(h.para)}` : (h.acao || 'Alteração');
   }
 }
@@ -84,7 +86,7 @@ export function abrirConta(ctx, id) {
       <div><dt>Categoria</dt><dd>${esc(cat)}</dd></div>
       ${l.pessoa ? `<div><dt>Quem gastou</dt><dd>${esc(l.pessoa)}</dd></div>` : ''}
       ${l.status === 'pago' ? `<div><dt>Pago</dt><dd>${l.pagoPor ? `por ${esc(l.pagoPor)} ` : ''}em ${dataLonga(l.pagoEm)}</dd></div>` : ''}
-      <div><dt>Origem</dt><dd>${esc(origemTexto(ctx, l))}</dd></div>
+      <div><dt>Origem</dt><dd>${esc(origemTexto(ctx, l))}${l.origem?.de > 1 && d.compras.some(c => c.id === l.origem.id) ? `<small><a href="#/compra/${esc(l.origem.id)}" data-ver-compra>Ver a compra completa</a></small>` : ''}</dd></div>
     </dl>
 
     ${l.status === 'pendente' ? `
@@ -119,6 +121,7 @@ export function abrirConta(ctx, id) {
 
   abrirFolha({ titulo: esc(l.descricao), corpo, ligar: (el, fechar) => {
     const pronto = (msg, acao) => { fechar(); ctx.render(); toast(msg, acao); };
+    el.querySelector('[data-ver-compra]')?.addEventListener('click', () => fechar());
     el.querySelectorAll('[data-mostrar]').forEach(b => b.addEventListener('click', () => {
       el.querySelectorAll('[data-form]').forEach(f => { f.hidden = f.dataset.form !== b.dataset.mostrar; });
       el.querySelector(`[data-form="${b.dataset.mostrar}"] input`)?.focus();

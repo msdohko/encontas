@@ -109,10 +109,11 @@ function ligarSaida(f, ctx) {
     if (!f.formaId.value) return erro(f, 'Escolha onde desconta.');
     erro(f, ''); const btn = f.querySelector('.btn'); btn.disabled = true;
     try {
-      await A.lancarCompra(ctx, { nome, valorTotal: valor, parcelas, formaId: f.formaId.value,
+      const lancs = await A.lancarCompra(ctx, { nome, valorTotal: valor, parcelas, formaId: f.formaId.value,
         categoriaId: f.categoriaId.value || null, data: f.data.value, pessoa: f.pessoa.value || null });
       lembrar('ultimaForma', f.formaId.value);
-      toast(parcelas > 1 ? `Lançado: ${nome}, ${parcelas}x` : `Lançado: ${nome}, ${brl(valor)}`);
+      toast(parcelas > 1 ? `Lançado: ${nome}, ${parcelas}x` : `Lançado: ${nome}, ${brl(valor)}`,
+        parcelas > 1 ? { rotulo: 'Ver parcelas', fn: () => { location.hash = `#/compra/${lancs[0].origem.id}`; } } : undefined);
       ctx.render();
     } catch (err) { erro(f, 'Não foi possível salvar: ' + err.message); btn.disabled = false; }
   });

@@ -24,7 +24,7 @@ node testes/teste-modelo.mjs     # testes das regras (quinzenas, parcelas, salá
 - [x] 2. Base: login, casa compartilhada, navegação celular/PC
 - [x] 3. Cadastros, assinaturas e lançamento rápido
 - [x] 4. Pagar, adiar e renegociar, com histórico de quem fez o quê
-- [ ] 5. Parcelamentos (editar, quitar antes)
+- [x] 5. Parcelamentos: editar, quitar antes com desconto, encerrar e excluir
 - [ ] 6. Gastos do dia a dia
 - [ ] 7. Importar a planilha
 - [ ] 8. Relatórios

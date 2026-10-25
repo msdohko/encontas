@@ -210,3 +210,77 @@ export const custoMensal = a => (a.ciclo === 'anual' ? a.valor / 12 : a.valor);
 export const assinaturaAtiva = (a, comp) => a.ativo !== false && a.inicio <= comp && (!a.fim || a.fim >= comp);
 /** Revisão "ainda usa?" vence a cada 90 dias */
 export const precisaRevisar = (a, hojeISO) => !a.ultimaRevisao || (new Date(hojeISO) - new Date(a.ultimaRevisao)) / 864e5 >= 90;
+
+// ── Parcelamentos (Etapa 5) ──────────────────────────────────────────
+export const parcelasDa = (compraId, lancamentos) =>
+  lancamentos.filter(l => l.origem?.tipo === 'compra' && l.origem.id === compraId).sort((a, b) => a.origem.parcela - b.origem.parcela);
+
+/** Resumo de uma compra: pagas, falta, próxima parcela, quando termina */
+export function resumoCompra(compra, lancamentos) {
+  const ps = parcelasDa(compra.id, lancamentos), pend = ps.filter(l => l.status !== 'pago');
+  const pago = ps.filter(l => l.status === 'pago').reduce((s, l) => s + cent(l.valor), 0);
+  const falta = pend.reduce((s, l) => s + cent(l.valor), 0);
+  const ordem = [...pend].sort((a, b) => a.data.localeCompare(b.data));
+  return { parcelas: ps, total: ps.length, pagas: ps.length - pend.length, pago: reais(pago), falta: reais(falta),
+    proxima: ordem[0] || null, termina: ps.length ? [...ps].sort((a, b) => b.data.localeCompare(a.data))[0].data : null, quitada: !pend.length };
+}
+
+const rotuloParcela = (nome, i, n) => (n > 1 ? `${nome} (${i}/${n})` : nome);
+
+/**
+ * Editar compra: nome, categoria, pessoa e forma valem para todas as parcelas; mudar a forma leva as parcelas
+ * pendentes para o dia de vencimento dela. Mudar valor total ou nº de parcelas refaz SÓ as pendentes:
+ * o que falta (novo total − já pago) é dividido nas parcelas que sobram. Pagas nunca mudam de valor.
+ * Retorna { compra, salvar: [lançamentos], apagar: [ids] }.
+ */
+export function editarCompra(compra, lancamentos, mud, forma, quem, emISO) {
+  const novo = { ...compra, ...mud };
+  const ps = parcelasDa(compra.id, lancamentos), pagas = ps.filter(l => l.status === 'pago');
+  const n = novo.parcelas, salvar = [], apagar = [];
+  if (n < Math.max(1, pagas.length)) throw new Error(`Já existem ${pagas.length} parcelas pagas.`);
+  const valorPago = pagas.reduce((s, l) => s + cent(l.valor), 0);
+  const restante = cent(novo.valorTotal) - valorPago;
+  const nPend = n - pagas.length;
+  if (nPend > 0 && restante <= 0) throw new Error('O novo total é menor do que o que já foi pago.');
+  const refazer = cent(novo.valorTotal) !== cent(compra.valorTotal) || n !== compra.parcelas;
+  const ev = evento('editou', quem, emISO, refazer ? { valorDe: compra.valorTotal, valorPara: novo.valorTotal, parcelasDe: compra.parcelas, parcelasPara: n } : {});
+
+  // parcelas pagas: só atualiza rótulo/categoria/pessoa
+  pagas.forEach(l => salvar.push({ ...l, descricao: rotuloParcela(novo.nome, l.origem.parcela, n), categoriaId: novo.categoriaId ?? null,
+    pessoa: novo.pessoa ?? null, origem: { ...l.origem, de: n } }));
+  // parcelas pendentes: refeitas a partir do calendário da compra (mantém adiamentos quando o nº não muda)
+  const valores = nPend > 0 ? dividirParcelas(reais(restante), nPend) : [];
+  const numsPagas = new Set(pagas.map(l => l.origem.parcela));
+  const nums = []; for (let k = 1; nums.length < nPend; k++) if (!numsPagas.has(k)) nums.push(k);
+  const antigas = Object.fromEntries(ps.filter(l => l.status !== 'pago').map(l => [l.origem.parcela, l]));
+  nums.forEach((k, i) => {
+    const velha = antigas[k];
+    let data = somarMeses(novo.primeiraData, k - 1, k === 1 ? undefined : forma?.diaVencimento);
+    if (velha && foiAdiado(velha) && !refazer && novo.formaId === compra.formaId) data = velha.data;
+    const base = velha || { id: `${compra.id}_${k}`, dataOriginal: data, status: 'pendente', pagoEm: null, historico: [] };
+    salvar.push(comEvento({ ...base, id: `${compra.id}_${k}`, descricao: rotuloParcela(novo.nome, k, n), valor: refazer ? valores[i] : (velha?.valor ?? valores[i]),
+      data, competencia: competenciaDe(data), quinzena: quinzenaDe(data), formaId: novo.formaId, categoriaId: novo.categoriaId ?? null,
+      pessoa: novo.pessoa ?? null, origem: { tipo: 'compra', id: compra.id, parcela: k, de: n } }, ev));
+  });
+  const manter = new Set(salvar.map(l => l.id));
+  ps.forEach(l => { if (!manter.has(l.id)) apagar.push(l.id); });
+  return { compra: novo, salvar, apagar };
+}
+
+/**
+ * Quitar antes: paga TODAS as parcelas pendentes de uma vez, na data informada, pelo valor combinado
+ * (com desconto). O dinheiro sai da quinzena do pagamento e as quinzenas futuras ficam livres.
+ */
+export function anteciparCompra(compra, lancamentos, { valorPago, data, pagoPor }, quem, emISO) {
+  const pend = parcelasDa(compra.id, lancamentos).filter(l => l.status !== 'pago');
+  if (!pend.length) throw new Error('Essa compra já está quitada.');
+  const totalPend = pend.reduce((s, l) => s + cent(l.valor), 0), alvo = cent(valorPago ?? reais(totalPend));
+  let usado = 0;
+  return pend.map((l, i) => {
+    const parte = i === pend.length - 1 ? alvo - usado : Math.round(alvo * cent(l.valor) / totalPend);
+    usado += parte;
+    return comEvento({ ...l, valorOriginal: l.valorOriginal ?? l.valor, valor: reais(parte), data, competencia: competenciaDe(data),
+      quinzena: quinzenaDe(data), status: 'pago', pagoEm: data, pagoPor, confirmado: true },
+    evento('antecipou', quem, emISO, { de: l.data, para: data, valorDe: l.valor, valorPara: reais(parte), pagoPor }));
+  });
+}
