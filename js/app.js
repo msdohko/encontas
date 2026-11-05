@@ -51,15 +51,30 @@ try { aplicarTema(localStorage.getItem('tema') || 'auto'); } catch {}
 function carregando(msg = 'Abrindo…') { raiz.innerHTML = `<div class="tela-cheia"><p class="carregando">${msg}</p></div>`; }
 
 carregando();
+const comPrazo = (p, ms) => Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('demorou demais para responder')), ms))]);
+
+function erroCarregar(e) {
+  console.error(e);
+  raiz.innerHTML = `<div class="tela-cheia"><div class="erro-carregar">
+    <p class="erro">Não foi possível carregar seus dados: ${esc(e.message)}.</p>
+    <p>Confira a internet e tente de novo. Se continuar, use “Recarregar sem cache”.</p>
+    <button class="btn" data-acao="tentar">Tentar de novo</button>
+    <button class="btn btn--sec" data-acao="sem-cache">Recarregar sem cache</button>
+    <button class="link-sair" data-acao="sair">Sair da conta</button></div></div>`;
+  raiz.querySelector('[data-acao=tentar]').onclick = () => location.reload();
+  raiz.querySelector('[data-acao=sem-cache]').onclick = () => { try { localStorage.setItem('semCache', '1'); } catch {} location.reload(); };
+  raiz.querySelector('[data-acao=sair]').onclick = () => S.sair();
+}
+
 S.observarUsuario(async u => {
   if (!u) { ctx.usuario = null; return mostrarEntrada(); }
   carregando('Carregando sua casa…');
   try {
-    ctx.usuario = await S.perfil(u);
+    ctx.usuario = await comPrazo(S.perfil(u), 20000);
     if (!ctx.usuario.casaId) return mostrarEntrada();
-    ctx.dados = await S.carregarCasa(ctx.usuario.casaId, ctx.hoje.slice(0, 7));
+    ctx.dados = await comPrazo(S.carregarCasa(ctx.usuario.casaId, ctx.hoje.slice(0, 7)), 30000);
     desenhar();
-  } catch (e) { console.error(e); raiz.innerHTML = `<div class="tela-cheia"><p class="erro">Não foi possível carregar seus dados: ${esc(e.message)}</p></div>`; }
+  } catch (e) { erroCarregar(e); }
 });
 
 function mostrarEntrada() {

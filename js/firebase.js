@@ -5,7 +5,7 @@ import {
   onAuthStateChanged, signOut,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
-  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache,
   doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, writeBatch,
   serverTimestamp, arrayUnion, Timestamp, query, orderBy, limit,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
@@ -13,9 +13,11 @@ import { CONFIG } from './config.js';
 
 const app = initializeApp(CONFIG.firebase);
 export const auth = getAuth(app);
-// Cache local: o app abre e mostra os dados mesmo sem internet
+// Cache local: abre rápido e mostra os dados sem internet. Se travar, a tela de erro oferece "Recarregar sem cache".
+let semCache = false;
+try { semCache = localStorage.getItem('semCache') === '1'; } catch {}
 export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  localCache: semCache ? memoryLocalCache() : persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 });
 
 export {
