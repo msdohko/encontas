@@ -13,11 +13,14 @@ import { CONFIG } from './config.js';
 
 const app = initializeApp(CONFIG.firebase);
 export const auth = getAuth(app);
-// Cache local: abre rápido e mostra os dados sem internet. Se travar, a tela de erro oferece "Recarregar sem cache".
-let semCache = false;
-try { semCache = localStorage.getItem('semCache') === '1'; } catch {}
+// iPhone/iPad (Safari e app na tela de início): sem cache em disco e com conexão simples (long polling),
+// porque o cache do Firestore e a conexão contínua costumam travar no iOS. Nos outros, cache local para abrir rápido.
+const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let semCache = ios;
+try { semCache ||= localStorage.getItem('semCache') === '1'; } catch {}
 export const db = initializeFirestore(app, {
   localCache: semCache ? memoryLocalCache() : persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  ...(ios ? { experimentalForceLongPolling: true } : {}),
 });
 
 export {
