@@ -11,7 +11,7 @@ export function linhaConta(ctx, l, { comCategoria = false, titulo = null } = {})
   const d = ctx.dados, sit = M.situacao(l, ctx.hoje);
   const forma = d.formas.find(f => f.id === l.formaId)?.nome;
   const cat = d.categorias.find(c => c.id === l.categoriaId);
-  const sub = [forma, l.status === 'pago' && l.pagoPor ? `pago por ${l.pagoPor}` : null, M.foiAdiado(l) && l.status !== 'pago' ? 'adiada' : null]
+  const sub = [forma, l.status === 'pago' && l.pagoPor ? `pago por ${l.pagoPor}` : null, M.foiAdiado(l) && l.status !== 'pago' && !(l.historico || []).every(h => h.acao !== 'adiou' || h.motivo === 'Data estava errada') ? 'adiada' : null]
     .filter(Boolean).join(', ');
   return `<li class="conta conta--${sit}" data-lanc="${esc(l.id)}" tabindex="0" aria-label="${esc(l.descricao)}, ${brl(l.valor)}, ${ROTULO_SITUACAO[sit]}. Abrir detalhes">
     <span class="conta__data">${dataCurta(l.data)}</span>
@@ -47,7 +47,7 @@ function frase(h, l) {
     case 'importou': return `Importada da planilha por ${h.nome}`;
     case 'pagou': return `${h.nome} marcou como pago${h.pagoPor && h.pagoPor !== h.nome ? ` por ${h.pagoPor}` : ''} em ${dataCurta(h.data || l.pagoEm || h.em.slice(0, 10))}${v}`;
     case 'desfez': return `${h.nome} desfez o pagamento`;
-    case 'adiou': return `${h.nome} ${h.valorDe != null ? 'renegociou' : 'adiou'}: de ${dataCurta(h.de)} para ${dataCurta(h.para)}${v}${h.motivo ? `. Motivo: ${h.motivo}` : ''}`;
+    case 'adiou': return `${h.nome} ${h.motivo === 'Data estava errada' ? 'corrigiu a data' : h.valorDe != null ? 'renegociou' : 'adiou'}: de ${dataCurta(h.de)} para ${dataCurta(h.para)}${v}${h.motivo && h.motivo !== 'Data estava errada' ? `. Motivo: ${h.motivo}` : ''}`;
     case 'confirmou': return `${h.nome} confirmou o valor${v}`;
     case 'antecipou': return `${h.nome} quitou antes${h.pagoPor && h.pagoPor !== h.nome ? ` (pago por ${h.pagoPor})` : ''}: vencia ${dataCurta(h.de)}, pago em ${dataCurta(h.para)}${v}`;
     case 'editou': return `${h.nome} editou a compra${h.parcelasDe != null ? `: ${h.parcelasDe}x de ${brl(h.valorDe)} para ${h.parcelasPara}x de ${brl(h.valorPara)} no total` : ''}`;
@@ -93,7 +93,7 @@ export function abrirConta(ctx, id) {
     ${l.status === 'pendente' ? `
     <div class="detalhe__acoes">
       <button type="button" class="btn" data-mostrar="pagar">Marcar como pago</button>
-      <button type="button" class="btn btn--sec" data-mostrar="adiar">Adiar ou renegociar</button>
+      <button type="button" class="btn btn--sec" data-mostrar="adiar">Mudar data ou valor</button>
     </div>
     <form class="detalhe__form" data-form="pagar" hidden>
       <fieldset class="campo"><legend>Quem pagou</legend><div class="chips">${chips('pagoPor', pessoas, eu)}</div></fieldset>
@@ -107,10 +107,10 @@ export function abrirConta(ctx, id) {
     <form class="detalhe__form" data-form="adiar" hidden>
       <div class="campo"><label for="a-data">Nova data</label><input id="a-data" name="data" type="date" value="${l.data}" required></div>
       <p class="previa" data-previa></p>
-      <fieldset class="campo"><legend>Motivo</legend><div class="chips">${chips('motivo', ['Sem dinheiro agora', 'Renegociei', 'Combinei outra data', 'Outro'], '')}</div></fieldset>
-      <label class="campo campo--check"><input type="checkbox" name="mudaValor"><span>O valor mudou na renegociação</span></label>
+      <fieldset class="campo"><legend>Motivo</legend><div class="chips">${chips('motivo', ['Data estava errada', 'Sem dinheiro agora', 'Renegociei', 'Combinei outra data', 'Outro'], '')}</div></fieldset>
+      <label class="campo campo--check"><input type="checkbox" name="mudaValor"><span>Mudar também o valor</span></label>
       <div class="campo" data-novo-valor hidden><label for="a-valor">Novo valor</label><input id="a-valor" name="valor" inputmode="decimal" value="${valorParaCampo(l.valor)}"></div>
-      <button class="btn">Confirmar nova data</button>
+      <button class="btn">Salvar nova data</button>
     </form>` : `
     <div class="detalhe__acoes"><button type="button" class="btn btn--sec" data-desfazer>Desfazer pagamento</button></div>`}
     ${excluivel ? `<button type="button" class="link-perigo" data-excluir>Excluir este gasto</button>` : ''}

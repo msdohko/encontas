@@ -444,3 +444,4 @@ small { color: var(--tinta-2); font-size: .8125rem; }
 .aviso-embutido p { margin: 0; }
 .entrada__dica { max-width: 32ch; margin: -.75rem 0 0; color: var(--tinta-2); font-size: .875rem; }
 .erro-carregar { max-width: 360px; display: grid; gap: .75rem; text-align: center; } .erro-carregar p { margin: 0; }
+.dica { margin: .75rem 0 0; font-size: .8125rem; color: var(--tinta-2); }

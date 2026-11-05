@@ -94,6 +94,7 @@ export function render(ctx) {
         <ul class="contas">${atrasados.map(item).join('')}</ul></section>` : ''}
       <section class="bloco"><h2 class="bloco__titulo">Próximos vencimentos</h2>
         ${proximos.length ? `<ul class="contas">${proximos.map(item).join('')}</ul>` : '<p class="nada">Nada a pagar por enquanto.</p>'}
+        <p class="dica">Toque no nome da conta para mudar a data, o valor ou ver o histórico.</p>
         <a class="link-mais" href="#/quinzenas">Ver todas as contas do mês</a></section>
     </div>
   </div>`;

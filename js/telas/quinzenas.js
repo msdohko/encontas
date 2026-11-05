@@ -31,7 +31,7 @@ export function render(ctx) {
     <li class="contas__cab" aria-hidden="true"><span>Vence</span><span>Conta</span><span>Categoria</span><span>Valor</span><span>Situação</span><span></span></li>
     ${itens.map(l => linhaConta(ctx, l, { comCategoria: true })).join('')}
   </ul>
-  <p class="nota">Toque numa conta para pagar, adiar ou ver o histórico. O ✓ marca como pago na hora.</p>`
+  <p class="nota">Toque no nome de uma conta para pagar, mudar a data ou o valor, ou ver o histórico. O ✓ marca como pago na hora.</p>`
   : `<div class="vazio"><p class="vazio__titulo">Nenhuma conta neste período.</p><p>Use o botão Lançar para adicionar.</p></div>`}`;
 }
 
