@@ -10,7 +10,13 @@ export function render(ctx) {
       <h1>${esc(CONFIG.nomeApp)}</h1>
       <p class="entrada__slogan">${esc(CONFIG.slogan)}</p>
       <p>As contas divididas do jeito que o dinheiro chega: dia 1 e dia 15.</p></div>
-    ${!logado ? `<button class="btn btn--google" data-acao="google">${G} Entrar com Google</button>` : `
+    ${!logado ? (ctx.store.navegadorEmbutido()
+      ? `<div class="aviso-embutido"><p><strong>Abra no Safari ou no Chrome para entrar.</strong></p>
+        <p>O Google não permite login por navegadores dentro de outros apps. Toque em compartilhar ou nos três pontinhos e escolha <em>Abrir no Safari</em> (ou Chrome).</p>
+        <button class="btn btn--sec" data-acao="copiar-link">Copiar o endereço</button>
+        <button class="link-sair" data-acao="google">Tentar entrar mesmo assim</button></div>`
+      : `<button class="btn btn--google" data-acao="google">${G} Entrar com Google</button>
+        <p class="entrada__dica">No iPhone, depois de entrar, toque em compartilhar e em <em>Adicionar à Tela de Início</em> para usar como app.</p>`) : `
     <div class="entrada__passos">
       <p class="entrada__ola">Olá, ${esc(ctx.usuario.nome.split(' ')[0])}.</p>
       <form class="cartao-form" data-form="criar">
@@ -32,8 +38,12 @@ export function render(ctx) {
 
 export function ligar(el, ctx, pronto) {
   const S = ctx.store;
-  el.querySelector('[data-acao=google]')?.addEventListener('click', async () => {
-    try { await S.entrarGoogle(); } catch (e) { toast('Não foi possível entrar: ' + e.message); }
+  el.querySelector('[data-acao=google]')?.addEventListener('click', () => {
+    S.entrarGoogle().catch(e => toast('Não foi possível entrar: ' + e.message));
+  });
+  el.querySelector('[data-acao=copiar-link]')?.addEventListener('click', async () => {
+    const url = location.origin + location.pathname;
+    try { await navigator.clipboard.writeText(url); toast('Endereço copiado. Cole no Safari.'); } catch { toast(url); }
   });
   el.querySelector('[data-acao=sair]')?.addEventListener('click', () => S.sair());
   const enviar = (sel, fn) => el.querySelector(sel)?.addEventListener('submit', async e => {

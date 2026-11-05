@@ -29,16 +29,28 @@ export async function observarUsuario(cb) {
   f.onAuthStateChanged(f.auth, u => cb(daFirebase(u)));
 }
 
-export async function entrarGoogle() {
-  const f = await api(), prov = new f.GoogleAuthProvider();
+/** Navegador embutido de outro app (Claude, Instagram, WhatsApp, Facebook…): o Google não deixa entrar por eles */
+export function navegadorEmbutido() {
+  const ua = navigator.userAgent || '';
+  return /FBAN|FBAV|Instagram|Line\/|WhatsApp|Claude|GSA\//i.test(ua)
+    || (/iPhone|iPad|iPod/.test(ua) && !/Safari\//.test(ua) && !navigator.standalone);
+}
+
+/**
+ * Login só por janelinha (popup). O redirecionamento não funciona quando o app (github.io) e o login
+ * (firebaseapp.com) estão em domínios diferentes no Safari/iPhone, então não usamos.
+ * O popup é aberto direto no toque, sem esperar nada antes, para o navegador não bloquear.
+ */
+export function entrarGoogle() {
+  if (!fb) return Promise.reject(new Error('O app ainda está carregando. Tente de novo em um segundo.'));
+  const prov = new fb.GoogleAuthProvider();
   prov.setCustomParameters({ prompt: 'select_account' });
-  try { await f.signInWithPopup(f.auth, prov); }
-  catch (e) {
-    if (['auth/popup-blocked', 'auth/operation-not-supported-in-environment', 'auth/cancelled-popup-request'].includes(e.code))
-      return f.signInWithRedirect(f.auth, prov);
-    if (e.code === 'auth/popup-closed-by-user') return;
+  return fb.signInWithPopup(fb.auth, prov).catch(e => {
+    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+    if (e.code === 'auth/popup-blocked') throw new Error('O navegador bloqueou a janela de login. Permita pop-ups para este site ou abra no Safari/Chrome.');
+    if (e.code === 'auth/unauthorized-domain') throw new Error('Este endereço não está autorizado no Firebase (Authentication → Domínios autorizados).');
     throw e;
-  }
+  });
 }
 
 export async function sair() {
