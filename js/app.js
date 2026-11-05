@@ -11,6 +11,7 @@ import * as cadastros from './telas/cadastros.js';
 import * as assinaturas from './telas/assinaturas.js';
 import * as atividade from './telas/atividade.js';
 import * as compra from './telas/compra.js';
+import * as diaadia from './telas/diaadia.js';
 
 const raiz = document.getElementById('app');
 const ROTAS = {
@@ -26,6 +27,7 @@ const SUBROTAS = {
   assinaturas: { tela: assinaturas, nome: 'Assinaturas', pai: 'mais' },
   atividade:   { tela: atividade,   nome: 'Atividade',   pai: 'mais' },
   compra:      { tela: compra,      nome: 'Compra',      pai: 'dividas' },
+  diaadia:     { tela: diaadia,     nome: 'Dia a dia',   pai: 'mais' },
 };
 
 // Estado compartilhado entre as telas

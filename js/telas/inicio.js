@@ -14,7 +14,7 @@ export const receitasDe = (ctx, comps) => M.receitasNoPeriodo(ctx.dados.fontes, 
 
 export function painelDoMes(ctx) {
   const comps = competenciasAte(ctx.dados, ctx.comp);
-  return M.painelQuinzenas(receitasDe(ctx, comps), ctx.dados.lancamentos, comps).slice(-2);
+  return M.painelQuinzenas(receitasDe(ctx, comps), M.doCaixa(ctx.dados.lancamentos, ctx.dados.formas), comps).slice(-2);
 }
 
 /** O que precisa de uma resposta rápida: salário que caiu, conta de valor variável que chegou */
@@ -62,7 +62,7 @@ export function render(ctx) {
 
   const [q1, q2] = painelDoMes(ctx);
   const nomes = Object.fromEntries(d.formas.map(f => [f.id, f.nome]));
-  const pendentes = d.lancamentos.filter(l => l.status === 'pendente')
+  const pendentes = M.doCaixa(d.lancamentos, d.formas).filter(l => l.status === 'pendente')
     .map(l => ({ ...l, sit: M.situacao(l, ctx.hoje) })).sort((a, b) => a.data.localeCompare(b.data));
   const atrasados = pendentes.filter(l => l.sit === 'atrasado');
   const proximos = pendentes.filter(l => l.sit !== 'atrasado').slice(0, 6);
@@ -88,6 +88,8 @@ export function render(ctx) {
       ${q1.temPrevisao || q2.temPrevisao ? '<p class="envelope__nota">* inclui salário previsto pela média dos últimos 3 meses</p>' : ''}
     </div>
     <div class="inicio-listas">
+      ${d.formas.filter(M.ehBeneficio).map(f => { const s = M.saldoBeneficio(f, d.lancamentos, ctx.comp);
+        return `<a class="vale-mini" href="#/diaadia"><span>${esc(f.nome)}</span><strong class="${s.saldo < 0 ? 'negativo' : ''}">${brl(s.saldo)} livre</strong><small>de ${brl(s.credito)}</small></a>`; }).join('')}
       ${atrasados.length ? `<section class="bloco bloco--alerta"><h2 class="bloco__titulo">Atrasadas <span class="contador">${atrasados.length}</span></h2>
         <ul class="contas">${atrasados.map(item).join('')}</ul></section>` : ''}
       <section class="bloco"><h2 class="bloco__titulo">Próximos vencimentos</h2>

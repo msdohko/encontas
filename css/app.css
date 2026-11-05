@@ -419,3 +419,24 @@ small { color: var(--tinta-2); font-size: .8125rem; }
 .compra__perigo { display: flex; flex-direction: column; align-items: flex-start; gap: .25rem; margin-top: 1.5rem; }
 .detalhe__dados dd small a { font-weight: 600; }
 .bloco--importar { box-shadow: 0 0 0 1.5px var(--pinho); margin-bottom: 1rem; }
+
+/* ══ Etapa 6: dia a dia e vale mercado ════════════════════════════════ */
+.vale { padding: 1.1rem 1.2rem; margin-bottom: 1rem; border-radius: var(--raio); background: linear-gradient(var(--q2-fundo), var(--superficie) 80%); box-shadow: 0 0 0 1px var(--linha); max-width: 640px; }
+.vale__topo { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; }
+.vale__saldo { margin: .5rem 0; display: flex; flex-direction: column; }
+.vale__saldo span { font-size: .875rem; color: var(--tinta-2); }
+.vale__saldo strong { font: 700 2.2rem var(--f-titulo); letter-spacing: -.02em; }
+.vale .barra span { background: var(--q2); }
+.vale__info { margin: .5rem 0 0; color: var(--tinta-2); font-size: .875rem; }
+.vale details { margin-top: .5rem; } .vale summary { cursor: pointer; font-weight: 600; padding: .4rem 0; }
+.vale-mini { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 0 1rem; padding: .8rem 1rem; margin-bottom: 1rem; border-radius: var(--raio);
+  background: var(--q2-fundo); color: var(--tinta); text-decoration: none; box-shadow: 0 0 0 1px var(--linha); }
+.vale-mini span { font-weight: 600; } .vale-mini strong { font: 700 1.2rem var(--f-titulo); } .vale-mini small { grid-column: 2; text-align: right; }
+.diaadia-grade { display: grid; gap: 1rem; } .diaadia-grade .bloco + .bloco { margin-top: 0; }
+@media (min-width: 900px) { .diaadia-grade { grid-template-columns: 1fr 1fr; } }
+.barras { list-style: none; margin: 0; padding: 0; display: grid; gap: .7rem; }
+.barras li { display: grid; grid-template-columns: 1fr auto; gap: .25rem 1rem; }
+.barras__nome { display: flex; align-items: center; gap: .45rem; font-weight: 500; }
+.barras__nome i { width: 9px; height: 9px; border-radius: 50%; }
+.barras__valor { font-weight: 600; }
+.barras .barra { grid-column: 1 / -1; margin: 0; }

@@ -16,7 +16,8 @@ export function render(ctx) {
   const ultima = [...(d.atividades || [])].sort((a, b) => b.em.localeCompare(a.em))[0];
   return `
   <section class="bloco">
-    <ul class="menu">${link('#/atividade', 'Atividade', ultima ? `última: ${esc(ultima.nome)}` : 'quem fez o quê')}</ul>
+    <ul class="menu">${link('#/diaadia', 'Dia a dia', d.formas.some(M.ehBeneficio) ? `vale mercado: ${brl(d.formas.filter(M.ehBeneficio).reduce((s, f) => s + M.saldoBeneficio(f, d.lancamentos, comp).saldo, 0))} livre` : 'gastos à vista e vale mercado')}
+      ${link('#/atividade', 'Atividade', ultima ? `última: ${esc(ultima.nome)}` : 'quem fez o quê')}</ul>
   </section>
   ${!ctx.modoDemo && !d.compras.some(c => c.importado) ? `<section class="bloco bloco--importar">
     <h2 class="bloco__titulo">Começar com a planilha</h2>

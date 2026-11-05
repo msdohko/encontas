@@ -25,7 +25,7 @@ node testes/teste-modelo.mjs     # testes das regras (quinzenas, parcelas, salá
 - [x] 3. Cadastros, assinaturas e lançamento rápido
 - [x] 4. Pagar, adiar e renegociar, com histórico de quem fez o quê
 - [x] 5. Parcelamentos: editar, quitar antes com desconto, encerrar e excluir
-- [ ] 6. Gastos do dia a dia
+- [x] 6. Dia a dia: vale mercado com saldo próprio, gastos por categoria e pessoa
 - [x] 7. Importar a planilha (botão em Mais)
 - [ ] 8. Relatórios
 - [ ] 9. Simulador de compra e plano de quitação

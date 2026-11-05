@@ -4,7 +4,7 @@ import { novoId } from '../store.js';
 import { brl, esc, abrirFolha, formHTML, ligarForm, toast, pessoasDaCasa, ICONES } from '../ui.js';
 
 export const TIPOS_FORMA = [['cartao', 'Cartão de crédito'], ['boleto', 'Boleto'], ['pix', 'Pix/Débito'], ['carne', 'Carnê'],
-  ['crediario', 'Crediário'], ['emprestimo', 'Empréstimo'], ['consignado', 'Consignado'], ['dinheiro', 'Dinheiro']];
+  ['crediario', 'Crediário'], ['emprestimo', 'Empréstimo'], ['consignado', 'Consignado'], ['dinheiro', 'Dinheiro'], ['beneficio', 'Vale mercado/alimentação']];
 const TIPO_FONTE = { fixa: 'Valor fixo', variavel: 'Varia todo mês', eventual: 'Sem data certa' };
 const mesAtual = ctx => ctx.hoje.slice(0, 7);
 const opFormas = d => d.formas.filter(f => f.ativo !== false).map(f => [f.id, f.nome]);
@@ -88,17 +88,18 @@ export const CADASTROS = {
     campos: () => [
       { n: 'nome', r: 'Nome', obrig: true, ph: 'Ex.: Cartão Santander' },
       { n: 'tipo', r: 'Tipo', t: 'lista', obrig: true, op: TIPOS_FORMA },
-      { n: 'diaVencimento', r: 'Dia de vencimento', t: 'dia', obrig: true, ajuda: 'No cartão, o dia em que a fatura vence.' },
+      { n: 'diaVencimento', r: 'Dia de vencimento', t: 'dia', obrig: true, se: v => v.tipo !== 'beneficio', ajuda: 'No cartão, o dia em que a fatura vence.' },
+      { n: 'saldoMensal', r: 'Valor que cai por mês', t: 'dinheiro', obrig: true, se: v => v.tipo === 'beneficio', ajuda: 'O que for pago com ele desconta daqui e não das quinzenas.' },
       { n: 'limite', r: 'Limite', t: 'dinheiro', se: v => v.tipo === 'cartao' || v.tipo === 'crediario' },
       { n: 'ativo', r: 'Ativa', t: 'check', padrao: true },
     ],
-    salvar: (ctx, obj, v) => A.salvarSimples(ctx, 'formas', { ...obj, ...v, limite: Number.isNaN(v.limite) ? null : v.limite, id: obj.id || novoId() }),
+    salvar: (ctx, obj, v) => A.salvarSimples(ctx, 'formas', { ...obj, ...v, limite: Number.isNaN(v.limite) ? null : v.limite, diaVencimento: v.diaVencimento || 1, saldoMensal: Number.isNaN(v.saldoMensal) ? null : v.saldoMensal, id: obj.id || novoId() }),
     excluir: (ctx, o) => {
       if (ctx.dados.lancamentos.some(l => l.formaId === o.id)) throw new Error('Essa forma tem lançamentos. Desative em vez de excluir.');
       return A.excluirSimples(ctx, 'formas', o.id);
     },
-    linha: (ctx, f) => ({ nome: f.nome, sub: [TIPOS_FORMA.find(t => t[0] === f.tipo)?.[1], `vence dia ${f.diaVencimento}`, f.ativo === false ? 'inativa' : null].filter(Boolean).join(', '),
-      valor: f.limite ? `limite ${brl(f.limite)}` : '' }),
+    linha: (ctx, f) => ({ nome: f.nome, sub: [TIPOS_FORMA.find(t => t[0] === f.tipo)?.[1], f.tipo === 'beneficio' ? null : `vence dia ${f.diaVencimento}`, f.ativo === false ? 'inativa' : null].filter(Boolean).join(', '),
+      valor: f.tipo === 'beneficio' ? `${brl(f.saldoMensal || 0)}/mês` : f.limite ? `limite ${brl(f.limite)}` : '' }),
     lista: d => d.formas,
   },
 

@@ -10,7 +10,7 @@ export function render(ctx) {
     receita: q1.receita + q2.receita, gastos: q1.gastos + q2.gastos, aPagar: q1.aPagar + q2.aPagar, saldo: q1.saldo + q2.saldo };
   const formas = Object.fromEntries(d.formas.map(f => [f.id, f.nome]));
   const cats = Object.fromEntries(d.categorias.map(c => [c.id, c]));
-  const itens = d.lancamentos.filter(l => l.competencia === ctx.comp && (v === 'mes' || l.quinzena === v))
+  const itens = M.doCaixa(d.lancamentos, d.formas).filter(l => l.competencia === ctx.comp && (v === 'mes' || l.quinzena === v))
     .map(l => ({ ...l, sit: M.situacao(l, ctx.hoje) })).sort((a, b) => a.data.localeCompare(b.data) || b.valor - a.valor);
 
   const entradas = receitasDe(ctx, [ctx.comp]).filter(r => v === 'mes' || r.quinzena === v).sort((a, b) => a.data.localeCompare(b.data));

@@ -95,8 +95,11 @@ function ligarSaida(f, ctx) {
     if (!(v > 0) || !data) { p.textContent = ''; return; }
     const ps = M.gerarParcelas({ id: 'x', nome: '', valorTotal: v, parcelas: n, primeiraData: data }, formaDe());
     const ult = ps.at(-1);
+    const fz = formaDe();
     p.innerHTML = n === 1
-      ? `Sai da <strong>${nomeQ(ps[0].competencia, ps[0].quinzena)}</strong>.`
+      ? (M.ehBeneficio(fz) ? `Sai do saldo do <strong>${esc(fz.nome)}</strong>, não das quinzenas.`
+        : M.pagaNaHora(fz, 1, data, ctx.hoje) ? `Entra como <strong>pago</strong> na ${nomeQ(ps[0].competencia, ps[0].quinzena)}.`
+        : `Sai da <strong>${nomeQ(ps[0].competencia, ps[0].quinzena)}</strong>.`)
       : `<strong>${n}x de ${brl(ps[0].valor)}</strong>. A 1ª em ${dataCurta(ps[0].data)} (${nomeQ(ps[0].competencia, ps[0].quinzena)}), a última em ${dataCurta(ult.data)}/${ult.data.slice(0, 4)}.`;
   }
   previa();

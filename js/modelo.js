@@ -284,3 +284,26 @@ export function anteciparCompra(compra, lancamentos, { valorPago, data, pagoPor 
     evento('antecipou', quem, emISO, { de: l.data, para: data, valorDe: l.valor, valorPara: reais(parte), pagoPor }));
   });
 }
+
+// ── Dia a dia e vale mercado (Etapa 6) ───────────────────────────────
+/** Benefício (vale mercado/alimentação): tem saldo próprio e não sai do caixa das quinzenas */
+export const ehBeneficio = f => f?.tipo === 'beneficio';
+/** Pago na hora: dinheiro, Pix/débito e benefício, à vista, com data de hoje ou antes */
+export const pagaNaHora = (f, parcelas, data, hoje) => parcelas === 1 && data <= hoje && ['pix', 'dinheiro', 'debito', 'beneficio'].includes(f?.tipo);
+/** Só o que sai do caixa (salário/vale): tira o que foi pago com benefício */
+export function doCaixa(lancamentos, formas) {
+  const ben = new Set(formas.filter(ehBeneficio).map(f => f.id));
+  return ben.size ? lancamentos.filter(l => !ben.has(l.formaId)) : lancamentos;
+}
+/** Saldo do benefício no mês: crédito mensal − gastos do mês com ele */
+export function saldoBeneficio(forma, lancamentos, comp) {
+  const gastos = lancamentos.filter(l => l.formaId === forma.id && l.data.slice(0, 7) === comp);
+  const usado = gastos.reduce((s, l) => s + cent(l.valor), 0);
+  return { credito: forma.saldoMensal || 0, usado: reais(usado), saldo: reais(cent(forma.saldoMensal || 0) - usado), gastos };
+}
+/** Gastos do dia a dia: compras à vista lançadas no app, pagas em dinheiro, Pix, débito ou vale */
+export function gastosDiaADia(compras, lancamentos, comp, formas = []) {
+  const ids = new Set(compras.filter(c => c.parcelas === 1 && !c.importado).map(c => c.id));
+  const naHora = new Set(formas.filter(f => ['pix', 'dinheiro', 'debito', 'beneficio'].includes(f.tipo)).map(f => f.id));
+  return lancamentos.filter(l => l.origem?.tipo === 'compra' && ids.has(l.origem.id) && l.data.slice(0, 7) === comp && naHora.has(l.formaId));
+}

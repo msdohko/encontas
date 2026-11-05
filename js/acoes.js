@@ -18,7 +18,9 @@ export async function lancarCompra(ctx, { nome, valorTotal, parcelas, formaId, c
   const forma = ctx.dados.formas.find(f => f.id === formaId), em = agora();
   const compra = { id: novoId(), nome, valorTotal, parcelas, formaId, categoriaId, primeiraData: data, pessoa,
     criadoPor: ctx.usuario.uid, criadoPorNome: quem(ctx).nome, criadoEm: em };
-  const lancs = M.gerarParcelas(compra, forma).map(l => M.comEvento(l, M.evento('lancou', quem(ctx), em)));
+  const naHora = M.pagaNaHora(forma, parcelas, data, ctx.hoje);
+  const lancs = M.gerarParcelas(compra, forma).map(l => M.comEvento(l, M.evento('lancou', quem(ctx), em)))
+    .map(l => naHora ? { ...l, status: 'pago', pagoEm: data, pagoPor: pessoa || quem(ctx).nome, confirmado: true } : l);
   await aplicar(ctx.dados, [{ set: 'compras', dados: compra }, ...lancs.map(l => ({ set: 'lancamentos', dados: l })),
     atividade(ctx, 'lancou', { colecao: 'compras', id: compra.id, descricao: nome, valor: valorTotal }, { parcelas })]);
   return lancs;
