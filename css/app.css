@@ -418,3 +418,4 @@ small { color: var(--tinta-2); font-size: .8125rem; }
 .barra--grossa span, .compra-resumo .barra span { background: var(--pago); }
 .compra__perigo { display: flex; flex-direction: column; align-items: flex-start; gap: .25rem; margin-top: 1.5rem; }
 .detalhe__dados dd small a { font-weight: 600; }
+.bloco--importar { box-shadow: 0 0 0 1.5px var(--pinho); margin-bottom: 1rem; }

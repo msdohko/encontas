@@ -44,6 +44,7 @@ function frase(h, l) {
   const v = h.valorDe != null ? `, de ${brl(h.valorDe)} para ${brl(h.valorPara)}` : '';
   switch (h.acao) {
     case 'lancou': return `${h.nome} lançou`;
+    case 'importou': return `Importada da planilha por ${h.nome}`;
     case 'pagou': return `${h.nome} marcou como pago${h.pagoPor && h.pagoPor !== h.nome ? ` por ${h.pagoPor}` : ''} em ${dataCurta(h.data || l.pagoEm || h.em.slice(0, 10))}${v}`;
     case 'desfez': return `${h.nome} desfez o pagamento`;
     case 'adiou': return `${h.nome} ${h.valorDe != null ? 'renegociou' : 'adiou'}: de ${dataCurta(h.de)} para ${dataCurta(h.para)}${v}${h.motivo ? `. Motivo: ${h.motivo}` : ''}`;

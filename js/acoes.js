@@ -152,3 +152,51 @@ export async function excluirCompra(ctx, compraId) {
   await aplicar(ctx.dados, [{ apagar: 'compras', id: compraId }, ...ps.map(l => ({ apagar: 'lancamentos', id: l.id })),
     atividade(ctx, 'excluiu', { colecao: 'compras', id: compraId, descricao: c.nome, valor: c.valorTotal })]);
 }
+
+// ── Importar a planilha "Contas" (Etapa 7, adiantada) ────────────────
+/**
+ * Copia para a casa os cadastros e parcelamentos da planilha: cartões e formas, fontes de renda (com o histórico
+ * do salário), contas fixas, compras parceladas e as faturas ainda em aberto. Parcelas com vencimento antes de
+ * hoje entram como pagas. Não apaga nada do que já existe; ids iguais são substituídos (dá para rodar de novo).
+ */
+export async function importarPlanilha(ctx) {
+  const D = structuredClone((await import('./demo-dados.js')).default);
+  const hoje = ctx.hoje, compHoje = hoje.slice(0, 7), em = agora(), eu = quem(ctx);
+  const formas = [...D.formas.map(({ confirmar, ...f }) => ({ ...f, ativo: true })),
+    { id: 'dinheiro', nome: 'Dinheiro', tipo: 'dinheiro', diaVencimento: 1, limite: null, ativo: true }];
+  const porId = Object.fromEntries(formas.map(f => [f.id, f]));
+  const limpar = ({ confirmar, ...o }) => o;
+  const compras = D.compras.map(c => ({ ...limpar(c), criadoPor: eu.uid, criadoPorNome: eu.nome, criadoEm: em, importado: true }));
+  const lanc = compras.flatMap(c => M.gerarParcelas(c, porId[c.formaId]));
+  // faturas digitadas na planilha que não estão detalhadas → "outras compras" (só meses de agora em diante)
+  for (const [fid, porMes] of Object.entries(D.planilhaFaturas)) {
+    if (fid.startsWith('_')) continue;
+    for (const [comp, valor] of Object.entries(porMes)) {
+      if (comp < compHoje) continue;
+      const det = lanc.filter(l => l.formaId === fid && l.competencia === comp).reduce((s, l) => s + M.cent(l.valor), 0);
+      const dif = M.cent(valor) - det;
+      if (dif <= 0) continue;
+      const c = { id: `fatura-${fid}-${comp}`, nome: `${porId[fid].nome}: outras compras`, valorTotal: M.reais(dif), parcelas: 1,
+        formaId: fid, categoriaId: 'cartoes', primeiraData: `${comp}-${M.pad(porId[fid].diaVencimento)}`, importado: true };
+      compras.push(c); lanc.push(...M.gerarParcelas(c, porId[fid]));
+    }
+  }
+  const lancs = lanc.map(l => l.data < hoje ? { ...l, status: 'pago', pagoEm: l.data, confirmado: true } : l)
+    .map(l => M.comEvento(l, M.evento('importou', eu, em)));
+  const recorrentes = D.recorrentes.map(r => ({ ...limpar(r), criadoPor: eu.uid, criadoPorNome: eu.nome, criadoEm: em }));
+  const ate = M.somarMesesComp(compHoje, 12);
+  const lancRec = recorrentes.flatMap(r => M.sincronizarRecorrente(r, ctx.dados.lancamentos, compHoje, ate).criar);
+  const entradas = D.entradas.filter(e => e.fonteId === 'salario').map(e => ({ ...e, criadoPor: eu.uid, criadoPorNome: eu.nome, criadoEm: em }));
+  const ops = [
+    ...formas.map(d => ({ set: 'formas', dados: d })),
+    ...D.fontes.map(d => ({ set: 'fontes', dados: d })),
+    ...entradas.map(d => ({ set: 'entradas', dados: d })),
+    ...recorrentes.map(d => ({ set: 'recorrentes', dados: d })),
+    ...compras.map(d => ({ set: 'compras', dados: d })),
+    ...[...lancs, ...lancRec].map(d => ({ set: 'lancamentos', dados: d })),
+    atividade(ctx, 'importou', { colecao: 'casa', id: 'planilha', descricao: 'os dados da planilha Contas', valor: null },
+      { compras: D.compras.length, contas: recorrentes.length }),
+  ];
+  await aplicar(ctx.dados, ops);
+  return { formas: formas.length, compras: D.compras.length, contas: recorrentes.length };
+}

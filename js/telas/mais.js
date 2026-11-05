@@ -1,4 +1,5 @@
 import * as M from '../modelo.js';
+import * as A from '../acoes.js';
 import { esc, toast, ICONES, brl } from '../ui.js';
 
 let codigoGerado = null;
@@ -17,6 +18,11 @@ export function render(ctx) {
   <section class="bloco">
     <ul class="menu">${link('#/atividade', 'Atividade', ultima ? `última: ${esc(ultima.nome)}` : 'quem fez o quê')}</ul>
   </section>
+  ${!ctx.modoDemo && !d.compras.some(c => c.importado) ? `<section class="bloco bloco--importar">
+    <h2 class="bloco__titulo">Começar com a planilha</h2>
+    <p class="intro">Traz da planilha Contas os cartões, o salário e o vale, as contas fixas, os parcelamentos e as faturas em aberto. O que venceu antes de hoje entra como pago. Depois é só conferir e ajustar.</p>
+    <button class="btn" data-acao="importar">Importar dados da planilha</button>
+  </section>` : ''}
   <section class="bloco">
     <h2 class="bloco__titulo">Cadastros</h2>
     <ul class="menu">
@@ -51,6 +57,11 @@ export function render(ctx) {
 
 export function ligar(el, ctx) {
   el.querySelectorAll('input[name=tema]').forEach(i => i.addEventListener('change', () => ctx.aplicarTema(i.value)));
+  el.querySelector('[data-acao=importar]')?.addEventListener('click', async e => {
+    const b = e.currentTarget; b.disabled = true; b.textContent = 'Importando…';
+    try { const r = await A.importarPlanilha(ctx); ctx.render(); toast(`Importado: ${r.compras} parcelamentos, ${r.contas} contas fixas e ${r.formas} formas de pagamento`); }
+    catch (err) { console.error(err); toast('Não foi possível importar: ' + err.message); b.disabled = false; b.textContent = 'Importar dados da planilha'; }
+  });
   el.querySelector('[data-acao=sair]')?.addEventListener('click', () => ctx.store.sair());
   el.querySelector('[data-acao=convite]')?.addEventListener('click', async e => {
     e.target.disabled = true;
