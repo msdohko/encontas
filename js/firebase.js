@@ -13,14 +13,16 @@ import { CONFIG } from './config.js';
 
 const app = initializeApp(CONFIG.firebase);
 export const auth = getAuth(app);
-// iPhone/iPad (Safari e app na tela de início): sem cache em disco e com conexão simples (long polling),
-// porque o cache do Firestore e a conexão contínua costumam travar no iOS. Nos outros, cache local para abrir rápido.
-const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-let semCache = ios;
+// Safari (Mac, iPhone, iPad e app na tela de início): sem cache em disco e com conexão simples (long polling),
+// porque o cache do Firestore e a conexão contínua travam no WebKit. Chrome/Edge/Firefox: cache local para abrir rápido.
+const ua = navigator.userAgent;
+const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const safari = ios || (/Safari\//.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg\//.test(ua));
+let semCache = safari;
 try { semCache ||= localStorage.getItem('semCache') === '1'; } catch {}
 export const db = initializeFirestore(app, {
   localCache: semCache ? memoryLocalCache() : persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-  ...(ios ? { experimentalForceLongPolling: true } : {}),
+  ...(safari ? { experimentalForceLongPolling: true } : {}),
 });
 
 export {
