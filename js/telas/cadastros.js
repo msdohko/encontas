@@ -90,6 +90,8 @@ export const CADASTROS = {
       { n: 'tipo', r: 'Tipo', t: 'lista', obrig: true, op: TIPOS_FORMA },
       { n: 'diaVencimento', r: 'Dia de vencimento', t: 'dia', obrig: true, se: v => v.tipo !== 'beneficio', ajuda: 'No cartão, o dia em que a fatura vence.' },
       { n: 'saldoMensal', r: 'Valor que cai por mês', t: 'dinheiro', obrig: true, se: v => v.tipo === 'beneficio', ajuda: 'O que for pago com ele desconta daqui e não das quinzenas.' },
+      { n: 'diaFechamento', r: 'Dia de fechamento da fatura', t: 'dia', se: v => v.tipo === 'cartao' || v.tipo === 'crediario',
+        ajuda: 'Compras a partir desse dia vão para a fatura do mês seguinte. Em branco: 7 dias antes do vencimento.' },
       { n: 'limite', r: 'Limite', t: 'dinheiro', se: v => v.tipo === 'cartao' || v.tipo === 'crediario' },
       { n: 'ativo', r: 'Ativa', t: 'check', padrao: true },
     ],
@@ -98,7 +100,7 @@ export const CADASTROS = {
       if (ctx.dados.lancamentos.some(l => l.formaId === o.id)) throw new Error('Essa forma tem lançamentos. Desative em vez de excluir.');
       return A.excluirSimples(ctx, 'formas', o.id);
     },
-    linha: (ctx, f) => ({ nome: f.nome, sub: [TIPOS_FORMA.find(t => t[0] === f.tipo)?.[1], f.tipo === 'beneficio' ? null : `vence dia ${f.diaVencimento}`, f.ativo === false ? 'inativa' : null].filter(Boolean).join(', '),
+    linha: (ctx, f) => ({ nome: f.nome, sub: [TIPOS_FORMA.find(t => t[0] === f.tipo)?.[1], f.tipo === 'beneficio' ? null : `vence dia ${f.diaVencimento}`, f.diaFechamento ? `fecha dia ${f.diaFechamento}` : null, f.ativo === false ? 'inativa' : null].filter(Boolean).join(', '),
       valor: f.tipo === 'beneficio' ? `${brl(f.saldoMensal || 0)}/mês` : f.limite ? `limite ${brl(f.limite)}` : '' }),
     lista: d => d.formas,
   },

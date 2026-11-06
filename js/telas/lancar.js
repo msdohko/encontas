@@ -8,6 +8,7 @@ const lembrar = (k, v) => { try { v === undefined ? (v = localStorage.getItem(k)
 /** Sugestão de data da 1ª parcela: no cartão/boleto é o próximo vencimento; no Pix/dinheiro é hoje */
 function dataSugerida(forma, hoje) {
   if (!forma || !PARCELA_NO_VENCIMENTO.includes(forma.tipo)) return hoje;
+  if (M.temFatura(forma)) return M.vencimentoDaCompra(forma, hoje);
   const comp = hoje.slice(0, 7), d = M.dataNoMes(comp, forma.diaVencimento);
   return d > hoje ? d : M.dataNoMes(M.somarMesesComp(comp, 1), forma.diaVencimento);
 }
@@ -40,6 +41,9 @@ export function render(ctx) {
         <button type="button" class="icone-btn" data-passo="1" aria-label="Mais parcelas">+</button></div></fieldset>
       <div class="campo"><label for="l-data" data-rot-data>Data</label><input id="l-data" name="data" type="date" value="${dataSugerida(formaPadrao, ctx.hoje)}" required></div>
     </div>
+    <label class="campo campo--check" data-ja-fatura hidden><input type="checkbox" name="jaNaFatura">
+      <span>Já está incluída no valor da fatura</span>
+      <small class="campo__ajuda">Marque se essa compra já estava somada no valor da fatura (ex.: na planilha). Assim ela vira só detalhe e não soma de novo.</small></label>
     <fieldset class="campo"><legend>Categoria</legend><div class="chips">${chips('categoriaId', [...d.categorias].sort((a, b) => a.ordem - b.ordem).map(c => [c.id, c.nome, c.cor]))}</div></fieldset>
     <fieldset class="campo"><legend>Quem gastou</legend><div class="chips">${chips('pessoa', pessoasDaCasa(d).map(p => [p, p]), quem)}</div></fieldset>
     <p class="previa" aria-live="polite"></p>
@@ -96,6 +100,14 @@ function ligarSaida(f, ctx) {
     const ps = M.gerarParcelas({ id: 'x', nome: '', valorTotal: v, parcelas: n, primeiraData: data }, formaDe());
     const ult = ps.at(-1);
     const fz = formaDe();
+    f.querySelector('[data-ja-fatura]').hidden = !M.temFatura(fz);
+    if (M.temFatura(fz)) {
+      const mes = c => nomeMes(c).split(' ')[0];
+      p.innerHTML = (n === 1 ? `Entra na <strong>fatura de ${mes(ps[0].competencia)}</strong> do ${esc(fz.nome)} (vence ${dataCurta(ps[0].data)}).`
+        : `<strong>${n}x de ${brl(ps[0].valor)}</strong> nas faturas de ${mes(ps[0].competencia)} a ${mes(ult.competencia)}/${ult.data.slice(2, 4)} do ${esc(fz.nome)}.`)
+        + (f.jaNaFatura.checked ? ' Não soma de novo: já está no valor da fatura.' : ' Soma no valor da fatura.');
+      return;
+    }
     p.innerHTML = n === 1
       ? (M.ehBeneficio(fz) ? `Sai do saldo do <strong>${esc(fz.nome)}</strong>, não das quinzenas.`
         : M.pagaNaHora(fz, 1, data, ctx.hoje) ? `Entra como <strong>pago</strong> na ${nomeQ(ps[0].competencia, ps[0].quinzena)}.`
@@ -113,7 +125,8 @@ function ligarSaida(f, ctx) {
     erro(f, ''); const btn = f.querySelector('.btn'); btn.disabled = true;
     try {
       const lancs = await A.lancarCompra(ctx, { nome, valorTotal: valor, parcelas, formaId: f.formaId.value,
-        categoriaId: f.categoriaId.value || null, data: f.data.value, pessoa: f.pessoa.value || null });
+        categoriaId: f.categoriaId.value || null, data: f.data.value, pessoa: f.pessoa.value || null,
+        jaNaFatura: M.temFatura(formaDe()) && f.jaNaFatura.checked });
       lembrar('ultimaForma', f.formaId.value);
       toast(parcelas > 1 ? `Lançado: ${nome}, ${parcelas}x` : `Lançado: ${nome}, ${brl(valor)}`,
         parcelas > 1 ? { rotulo: 'Ver parcelas', fn: () => { location.hash = `#/compra/${lancs[0].origem.id}`; } } : undefined);

@@ -69,10 +69,34 @@ function origemTexto(ctx, l) {
   return '';
 }
 
+// ── Composição da fatura ─────────────────────────────────────────────
+function composicaoFatura(l, itens) {
+  const soma = ls => ls.reduce((t, x) => t + x.valor, 0);
+  const li = x => `<li><span>${esc(x.descricao)}</span><span>${brl(x.valor)}</span></li>`;
+  const ord = ls => [...ls].sort((a, b) => b.valor - a.valor);
+  const base = itens.filter(M.naBase), novas = itens.filter(x => !M.naBase(x));
+  if (l.valorFinal) return `<div class="fatura-itens"><h3 class="detalhe__sub">Valor confirmado da fatura</h3>
+    ${itens.length ? `<ul class="fatura-lista">${ord(itens).map(li).join('')}</ul>` : ''}</div>`;
+  if (l.estimada) return `<div class="fatura-itens"><h3 class="detalhe__sub">Estimada pela soma das compras</h3>
+    <ul class="fatura-lista">${ord(itens).map(li).join('')}</ul>
+    <p class="detalhe__nota">Quando a fatura fechar, confirme o valor real (no Início ou em "Mudar data ou valor").</p></div>`;
+  const outras = (l.valorInformado ?? 0) - soma(base);
+  return `<div class="fatura-itens"><h3 class="detalhe__sub">Como chega neste valor</h3>
+    <ul class="fatura-lista">
+      <li class="fatura-lista__grupo"><span>Valor informado da fatura</span><span>${brl(l.valorInformado ?? l.valor)}</span></li>
+      ${ord(base).map(li).join('')}
+      ${Math.abs(outras) > 0.004 && base.length ? `<li><span>Outras compras (não detalhadas)</span><span>${brl(outras)}</span></li>` : ''}
+      ${novas.length ? `<li class="fatura-lista__grupo"><span>+ Compras lançadas depois</span><span>${brl(soma(novas))}</span></li>${ord(novas).map(li).join('')}` : ''}
+      <li class="fatura-lista__total"><span>Total da fatura</span><span>${brl(l.valor)}</span></li>
+    </ul>
+    <p class="detalhe__nota">Quando a fatura fechar, confirme o valor real pelo "Mudar data ou valor".</p></div>`;
+}
+
 // ── Painel de detalhe ────────────────────────────────────────────────
 export function abrirConta(ctx, id) {
   const d = ctx.dados;
-  const l = d.lancamentos.find(x => x.id === id) || M.doCaixa(d.lancamentos, d.formas).find(x => x.id === id);
+  // fatura: sempre a versão calculada (informado + compras lançadas depois)
+  const l = (id.startsWith('fatura_') && M.doCaixa(d.lancamentos, d.formas).find(x => x.id === id)) || d.lancamentos.find(x => x.id === id);
   if (!l) return;
   const fo = d.formas.find(f => f.id === l.formaId), eFatura = M.ehFatura(l), eDetalhe = M.temFatura(fo) && !eFatura;
   const sit = M.situacao(l, ctx.hoje), eu = A.quem(ctx).nome;
@@ -96,13 +120,9 @@ export function abrirConta(ctx, id) {
       <div><dt>Origem</dt><dd>${esc(origemTexto(ctx, l))}${l.origem?.de > 1 && d.compras.some(c => c.id === l.origem.id) ? `<small><a href="#/compra/${esc(l.origem.id)}" data-ver-compra>Ver a compra completa</a></small>` : ''}</dd></div>
     </dl>
 
-    ${eFatura ? `<div class="fatura-itens"><h3 class="detalhe__sub">${l.estimada ? 'Estimada pela soma das compras abaixo' : 'Compras que compõem esta fatura'}</h3>
-      ${itensFatura.length ? `<ul class="fatura-lista">${itensFatura.sort((a, b) => b.valor - a.valor).map(x => `<li><span>${esc(x.descricao)}</span><span>${brl(x.valor)}</span></li>`).join('')}
-        <li class="fatura-lista__total"><span>Soma das compras detalhadas</span><span>${brl(itensFatura.reduce((t, x) => t + x.valor, 0))}</span></li>
-        ${!l.estimada && Math.abs(l.valor - itensFatura.reduce((t, x) => t + x.valor, 0)) > 0.004 ? `<li class="fatura-lista__total"><span>Outras compras (não detalhadas)</span><span>${brl(l.valor - itensFatura.reduce((t, x) => t + x.valor, 0))}</span></li>` : ''}</ul>`
-        : '<p class="nada">Nenhuma compra detalhada neste mês. O valor é o da fatura informada.</p>'}
-      ${l.estimada ? '<p class="detalhe__nota">Quando a fatura fechar, use "Mudar data ou valor" (ou confirme no Início) com o valor real.</p>' : ''}</div>` : ''}
-    ${eDetalhe ? `<p class="aviso-bom">Esta compra é só o detalhe da fatura do ${esc(fo.nome)}. O que se paga é a fatura do mês, então ela não soma de novo nas quinzenas.
+    ${eFatura ? composicaoFatura(l, itensFatura) : ''}
+    ${eDetalhe ? `<p class="aviso-bom">${M.naBase(l) ? `Esta compra já está somada no valor da fatura do ${esc(fo.nome)}. É só o detalhe.`
+      : `Esta compra soma na fatura do ${esc(fo.nome)}. Nas quinzenas aparece a fatura, não a compra separada.`}
       <br><button type="button" class="link-mais" data-abrir-fatura="${esc(M.idFatura(l.formaId, l.competencia))}">Abrir a fatura de ${nomeMes(l.competencia).split(' ')[0]}</button></p>` : l.status === 'pendente' ? `
     <div class="detalhe__acoes">
       <button type="button" class="btn" data-mostrar="pagar">Marcar como pago</button>

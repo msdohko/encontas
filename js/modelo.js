@@ -301,6 +301,26 @@ export const ehFatura = l => l?.origem?.tipo === 'fatura';
  * Se não, o app estima pela soma das compras/parcelas daquele mês naquele cartão (estimada: true).
  * Retorna [{ fatura, detalhes }].
  */
+/** Compra que já estava somada no valor informado da fatura (planilha ou marcada no Lançar) */
+export const naBase = l => !!l.naBase || (l.historico || []).some(h => h.acao === 'importou');
+
+/**
+ * Para qual fatura vai uma compra feita em `dataCompra` no cartão: a próxima fatura cujo fechamento seja
+ * DEPOIS da compra. Sem dia de fechamento cadastrado, considera 7 dias antes do vencimento.
+ */
+export function vencimentoDaCompra(forma, dataCompra) {
+  for (let i = 0; i < 3; i++) {
+    const venc = dataNoMes(somarMesesComp(dataCompra.slice(0, 7), i), forma.diaVencimento || 15);
+    let fecha;
+    if (forma.diaFechamento) {
+      const compF = forma.diaFechamento < (forma.diaVencimento || 15) ? venc.slice(0, 7) : somarMesesComp(venc.slice(0, 7), -1);
+      fecha = dataNoMes(compF, forma.diaFechamento);
+    } else fecha = new Date(new Date(venc + 'T12:00:00').getTime() - 7 * 864e5).toISOString().slice(0, 10);
+    if (fecha > dataCompra) return venc;
+  }
+  return dataNoMes(somarMesesComp(dataCompra.slice(0, 7), 1), forma.diaVencimento || 15);
+}
+
 export function faturas(lancamentos, formas) {
   const cartoes = Object.fromEntries(formas.filter(temFatura).map(f => [f.id, f]));
   const grupos = new Map();
@@ -316,12 +336,19 @@ export function faturas(lancamentos, formas) {
   }
   return [...grupos.values()].map(g => {
     const f = cartoes[g.formaId];
-    if (g.salva) return { fatura: g.salva, detalhes: g.detalhes };
+    if (g.salva) {
+      // valor informado + compras lançadas depois (que não estavam na conta), até o valor real ser confirmado
+      if (g.salva.valorFinal) return { fatura: g.salva, detalhes: g.detalhes };
+      const base = g.salva.valorInformado ?? g.salva.valor;
+      const novas = g.detalhes.filter(l => !naBase(l)).reduce((t, l) => t + cent(l.valor), 0);
+      return { detalhes: g.detalhes, fatura: { ...g.salva, valorInformado: base, valor: reais(cent(base) + novas), somaNovas: reais(novas) } };
+    }
     const soma = g.detalhes.reduce((t, l) => t + cent(l.valor), 0);
     const data = dataNoMes(g.comp, f.diaVencimento || 15);
     const todasPagas = g.detalhes.length && g.detalhes.every(l => l.status === 'pago');
     return { detalhes: g.detalhes, fatura: {
       id: idFatura(g.formaId, g.comp), descricao: `Fatura ${f.nome}`, valor: reais(soma), estimada: true, confirmado: false,
+      valorInformado: reais(g.detalhes.filter(naBase).reduce((t, l) => t + cent(l.valor), 0)),
       data, dataOriginal: data, competencia: g.comp, quinzena: quinzenaDe(data), formaId: g.formaId, categoriaId: 'cartoes',
       status: todasPagas ? 'pago' : 'pendente', pagoEm: todasPagas ? data : null, historico: [],
       origem: { tipo: 'fatura', formaId: g.formaId } } };
@@ -362,7 +389,7 @@ export function faturasInformadas(valores, formas, desde) {
       if (comp < desde) continue;
       const data = dataNoMes(comp, f.diaVencimento || 15);
       out.push({ id: idFatura(fid, comp), descricao: `Fatura ${f.nome}`, valor, data, dataOriginal: data, competencia: comp,
-        quinzena: quinzenaDe(data), formaId: fid, categoriaId: 'cartoes', status: 'pendente', pagoEm: null, confirmado: true,
+        quinzena: quinzenaDe(data), formaId: fid, categoriaId: 'cartoes', status: 'pendente', pagoEm: null, confirmado: true, valorInformado: valor,
         historico: [], origem: { tipo: 'fatura', formaId: fid } });
     }
   }

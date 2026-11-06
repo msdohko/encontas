@@ -171,7 +171,7 @@ async function demo() {
   const D = structuredClone((await import('./demo-dados.js')).default);
   const formaPorId = Object.fromEntries(D.formas.map(f => [f.id, f]));
   let lanc = [
-    ...D.compras.flatMap(c => M.gerarParcelas(c, formaPorId[c.formaId])),
+    ...D.compras.flatMap(c => M.gerarParcelas(c, formaPorId[c.formaId])).map(l => ({ ...l, naBase: true })),
     ...D.recorrentes.flatMap(r => M.gerarRecorrentes(r, '2027-10')),
   ];
   D.ajustes.forEach(a => { const l = lanc.find(l => l.origem.id === a.recorrenteId && l.competencia === a.competencia); if (l) { l.valor = a.valor; l.confirmado = true; } });

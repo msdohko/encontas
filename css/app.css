@@ -455,3 +455,4 @@ small { color: var(--tinta-2); font-size: .8125rem; }
 .fatura-lista li { display: flex; justify-content: space-between; gap: 1rem; padding: .5rem 0; border-bottom: 1px solid var(--linha); font-size: .9375rem; }
 .fatura-lista__total { font-weight: 600; color: var(--tinta-2); }
 .aviso-bom .link-mais { border: 0; background: none; padding: 0; color: var(--pinho); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
+.fatura-lista__grupo { font-weight: 600; } .fatura-lista__total { border-top: 2px solid var(--linha); }

@@ -96,9 +96,23 @@ let cx = M.doCaixa([...cel, alug], fm);
 ok(cx.length === 4 && cx.filter(M.ehFatura).every(f => f.estimada && f.valor === 40), 'sem valor informado: fatura estimada pela soma das compras');
 ok(!cx.some(l => l.origem?.id === 'cel'), 'compras do cartão não somam de novo nas quinzenas');
 const inf = M.faturasInformadas({ cd: { '2026-11': 403 } }, fm, '2026-11');
-cx = M.doCaixa([...cel, alug, ...inf], fm);
+cx = M.doCaixa([...cel.map(l => ({ ...l, naBase: true })), alug, ...inf], fm);
 ok(cx.find(l => l.id === 'fatura_cd_2026-11').valor === 403 && cx.filter(M.ehFatura).length === 3, 'fatura informada (R$ 403) vale no lugar da soma');
 ok(M.resumoFormas(fm, cx)[0].falta === 483, 'cartão: falta = faturas pendentes (403 + 40 + 40)');
+
+const nova = M.gerarParcelas({ id: 'tv2', nome: 'Fone', valorTotal: 90, parcelas: 1, formaId: 'cd', primeiraData: '2026-11-15' }, fm[0]);
+const base2 = cel.map(l => ({ ...l, naBase: true }));
+cx = M.doCaixa([...base2, ...nova, ...inf], fm);
+ok(cx.find(l => l.id === 'fatura_cd_2026-11').valor === 493, 'compra nova soma no valor informado (403 + 90)');
+const marcada = nova.map(l => ({ ...l, naBase: true }));
+ok(M.doCaixa([...base2, ...marcada, ...inf], fm).find(l => l.id === 'fatura_cd_2026-11').valor === 403, '"já está na fatura": não soma de novo');
+const fin = { ...inf[0], valor: 450, valorFinal: true };
+ok(M.doCaixa([...base2, ...nova, fin], fm).find(l => l.id === 'fatura_cd_2026-11').valor === 450, 'valor confirmado da fatura é o final');
+const est = M.faturas([...cel.map(l => ({ ...l, naBase: true })), ...nova], fm).find(x => x.fatura.id === 'fatura_cd_2026-11').fatura;
+ok(est.valor === 130 && est.valorInformado === 40, 'estimada guarda a base para não somar duas vezes ao salvar');
+const st = { diaVencimento: 15 };
+ok(M.vencimentoDaCompra(st, '2026-11-06') === '2026-11-15' && M.vencimentoDaCompra(st, '2026-11-08') === '2026-12-15', 'sem fechamento: compra até 7 dias antes do vencimento entra no mês');
+ok(M.vencimentoDaCompra({ diaVencimento: 5, diaFechamento: 28 }, '2026-11-27') === '2026-12-05' && M.vencimentoDaCompra({ diaVencimento: 5, diaFechamento: 28 }, '2026-11-28') === '2027-01-05', 'fecha 28 e vence 5: compra no dia 28 vai para a fatura seguinte');
 
 console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTudo certo');
 process.exit(falhas ? 1 : 0);

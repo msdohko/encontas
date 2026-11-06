@@ -14,13 +14,14 @@ function atividade(ctx, acao, alvo, extra = {}) {
 }
 
 // ── Lançar ───────────────────────────────────────────────────────────
-export async function lancarCompra(ctx, { nome, valorTotal, parcelas, formaId, categoriaId, data, pessoa }) {
+export async function lancarCompra(ctx, { nome, valorTotal, parcelas, formaId, categoriaId, data, pessoa, jaNaFatura }) {
   const forma = ctx.dados.formas.find(f => f.id === formaId), em = agora();
   const compra = { id: novoId(), nome, valorTotal, parcelas, formaId, categoriaId, primeiraData: data, pessoa,
     criadoPor: ctx.usuario.uid, criadoPorNome: quem(ctx).nome, criadoEm: em };
   const naHora = M.pagaNaHora(forma, parcelas, data, ctx.hoje);
   const lancs = M.gerarParcelas(compra, forma).map(l => M.comEvento(l, M.evento('lancou', quem(ctx), em)))
-    .map(l => naHora ? { ...l, status: 'pago', pagoEm: data, pagoPor: pessoa || quem(ctx).nome, confirmado: true } : l);
+    .map(l => naHora ? { ...l, status: 'pago', pagoEm: data, pagoPor: pessoa || quem(ctx).nome, confirmado: true } : l)
+    .map(l => jaNaFatura ? { ...l, naBase: true } : l);
   await aplicar(ctx.dados, [{ set: 'compras', dados: compra }, ...lancs.map(l => ({ set: 'lancamentos', dados: l })),
     atividade(ctx, 'lancou', { colecao: 'compras', id: compra.id, descricao: nome, valor: valorTotal }, { parcelas })]);
   return lancs;
@@ -36,15 +37,15 @@ export async function lancarEntrada(ctx, { fonteId, valor, data, descricao, ref 
 }
 
 // ── Mexer num lançamento ─────────────────────────────────────────────
-const achar = (ctx, id) => ctx.dados.lancamentos.find(x => x.id === id)
-  || (id.startsWith('fatura_') ? M.doCaixa(ctx.dados.lancamentos, ctx.dados.formas).find(x => x.id === id) : undefined);
+const achar = (ctx, id) => (id.startsWith('fatura_') && M.doCaixa(ctx.dados.lancamentos, ctx.dados.formas).find(x => x.id === id))
+  || ctx.dados.lancamentos.find(x => x.id === id);
 const salvarLanc = (ctx, l, acao, extra) => aplicar(ctx.dados, [{ set: 'lancamentos', dados: l },
   atividade(ctx, acao, { colecao: 'lancamentos', id: l.id, descricao: l.descricao, valor: l.valor }, extra)]);
 
 /** Conta de valor variável (luz…): confirma o valor que chegou */
 export async function confirmarValor(ctx, id, valor) {
   const l = achar(ctx, id);
-  const novo = M.comEvento({ ...l, valor, confirmado: true, estimada: false }, M.evento('confirmou', quem(ctx), agora(), { valorDe: l.valor, valorPara: valor }));
+  const novo = M.comEvento({ ...l, valor, confirmado: true, estimada: false, ...(M.ehFatura(l) ? { valorFinal: true } : {}) }, M.evento('confirmou', quem(ctx), agora(), { valorDe: l.valor, valorPara: valor }));
   await salvarLanc(ctx, novo, 'confirmou', { valorDe: l.valor });
 }
 
@@ -55,7 +56,8 @@ function detalhesDaFatura(ctx, fatura) {
 
 export async function pagar(ctx, id, { pagoPor, data, valorPago } = {}) {
   const l = achar(ctx, id);
-  const novo = M.pagar(l, { pagoPor: pagoPor || quem(ctx).nome, data: data || ctx.hoje, valorPago }, quem(ctx), agora());
+  let novo = M.pagar(l, { pagoPor: pagoPor || quem(ctx).nome, data: data || ctx.hoje, valorPago }, quem(ctx), agora());
+  if (M.ehFatura(l)) novo = { ...novo, valorFinal: true, estimada: false };
   const extra = M.ehFatura(l) ? detalhesDaFatura(ctx, l).filter(x => x.status !== 'pago')
     .map(x => ({ set: 'lancamentos', dados: { ...x, status: 'pago', pagoEm: novo.pagoEm, pagoPor: novo.pagoPor, pagoNaFatura: true } })) : [];
   await aplicar(ctx.dados, [{ set: 'lancamentos', dados: novo }, ...extra,
@@ -74,7 +76,8 @@ export async function desfazerPagamento(ctx, id) {
 
 export async function adiar(ctx, id, { novaData, motivo, novoValor }) {
   const l = achar(ctx, id);
-  const novo = M.adiar(l, novaData, motivo, quem(ctx), agora(), novoValor);
+  let novo = M.adiar(l, novaData, motivo, quem(ctx), agora(), novoValor);
+  if (M.ehFatura(l) && novoValor != null) novo = { ...novo, valorFinal: true, estimada: false };
   await salvarLanc(ctx, novo, novo.valor !== l.valor ? 'renegociou' : 'adiou', { de: l.data, para: novaData, motivo: motivo || null });
   return novo;
 }
