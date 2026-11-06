@@ -72,7 +72,7 @@ export const CADASTROS = {
       { n: 'mesRenovacao', r: 'Mês da renovação', t: 'lista', se: v => v.ciclo === 'anual', obrig: true,
         op: ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'].map((m, i) => [i + 1, m]) },
       { n: 'diaVencimento', r: 'Dia da cobrança', t: 'dia', obrig: true },
-      { n: 'formaId', r: 'Onde cai', t: 'lista', op: opFormas(ctx.dados), ajuda: 'No cartão, ela entra na fatura daquele cartão.' },
+      { n: 'formaId', r: 'Onde cai', t: 'lista', op: opFormas(ctx.dados), ajuda: 'No cartão, ela vira detalhe da fatura: nos meses com valor da planilha já está incluída; nos outros, soma na fatura.' },
       { n: 'pessoa', r: 'Quem usa', sugestoes: pessoasDaCasa(ctx.dados), ph: 'Ex.: Eduardo, Amanda, Casa' },
       { n: 'inicio', r: 'Desde', t: 'mes', padrao: mesAtual(ctx), obrig: true },
     ],

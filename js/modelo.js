@@ -308,6 +308,11 @@ export const naBase = l => !!l.naBase || (l.historico || []).some(h => h.acao ==
  * Para qual fatura vai uma compra feita em `dataCompra` no cartão: a próxima fatura cujo fechamento seja
  * DEPOIS da compra. Sem dia de fechamento cadastrado, considera 7 dias antes do vencimento.
  */
+/** Fatura com valor vindo da planilha: assinaturas e contas fixas nesse cartão já estavam somadas nela */
+export const faturaDaPlanilha = f => (f?.historico || []).some(h => h.acao === 'importou');
+/** Esta compra/assinatura já está dentro do valor informado desta fatura? */
+export const jaNaFatura = (fatura, l) => naBase(l) || (faturaDaPlanilha(fatura) && ['recorrente', 'assinatura'].includes(l.origem?.tipo));
+
 export function vencimentoDaCompra(forma, dataCompra) {
   for (let i = 0; i < 3; i++) {
     const venc = dataNoMes(somarMesesComp(dataCompra.slice(0, 7), i), forma.diaVencimento || 15);
@@ -340,7 +345,7 @@ export function faturas(lancamentos, formas) {
       // valor informado + compras lançadas depois (que não estavam na conta), até o valor real ser confirmado
       if (g.salva.valorFinal) return { fatura: g.salva, detalhes: g.detalhes };
       const base = g.salva.valorInformado ?? g.salva.valor;
-      const novas = g.detalhes.filter(l => !naBase(l)).reduce((t, l) => t + cent(l.valor), 0);
+      const novas = g.detalhes.filter(l => !jaNaFatura(g.salva, l)).reduce((t, l) => t + cent(l.valor), 0);
       return { detalhes: g.detalhes, fatura: { ...g.salva, valorInformado: base, valor: reais(cent(base) + novas), somaNovas: reais(novas) } };
     }
     const soma = g.detalhes.reduce((t, l) => t + cent(l.valor), 0);

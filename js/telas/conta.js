@@ -74,7 +74,7 @@ function composicaoFatura(l, itens) {
   const soma = ls => ls.reduce((t, x) => t + x.valor, 0);
   const li = x => `<li><span>${esc(x.descricao)}</span><span>${brl(x.valor)}</span></li>`;
   const ord = ls => [...ls].sort((a, b) => b.valor - a.valor);
-  const base = itens.filter(M.naBase), novas = itens.filter(x => !M.naBase(x));
+  const base = itens.filter(x => M.jaNaFatura(l, x)), novas = itens.filter(x => !M.jaNaFatura(l, x));
   if (l.valorFinal) return `<div class="fatura-itens"><h3 class="detalhe__sub">Valor confirmado da fatura</h3>
     ${itens.length ? `<ul class="fatura-lista">${ord(itens).map(li).join('')}</ul>` : ''}</div>`;
   if (l.estimada) return `<div class="fatura-itens"><h3 class="detalhe__sub">Estimada pela soma das compras</h3>
@@ -121,7 +121,7 @@ export function abrirConta(ctx, id) {
     </dl>
 
     ${eFatura ? composicaoFatura(l, itensFatura) : ''}
-    ${eDetalhe ? `<p class="aviso-bom">${M.naBase(l) ? `Esta compra já está somada no valor da fatura do ${esc(fo.nome)}. É só o detalhe.`
+    ${eDetalhe ? `<p class="aviso-bom">${M.jaNaFatura(M.doCaixa(d.lancamentos, d.formas).find(x => x.id === M.idFatura(l.formaId, l.competencia)), l) ? `Esta compra já está somada no valor da fatura do ${esc(fo.nome)}. É só o detalhe.`
       : `Esta compra soma na fatura do ${esc(fo.nome)}. Nas quinzenas aparece a fatura, não a compra separada.`}
       <br><button type="button" class="link-mais" data-abrir-fatura="${esc(M.idFatura(l.formaId, l.competencia))}">Abrir a fatura de ${nomeMes(l.competencia).split(' ')[0]}</button></p>` : l.status === 'pendente' ? `
     <div class="detalhe__acoes">
