@@ -196,10 +196,10 @@ export function painelQuinzenas(receitas, lancamentos, comps, saldoInicial = 0) 
   }));
 }
 
-/** Quanto falta pagar de parcelamentos por forma, e limite livre dos cartões */
+/** Quanto falta pagar por forma (cartões: faturas pendentes; demais: parcelas), e limite livre. Passe a lista de doCaixa. */
 export function resumoFormas(formas, lancamentos) {
   return formas.map(f => {
-    const pend = lancamentos.filter(l => l.formaId === f.id && l.status === 'pendente' && l.origem?.tipo === 'compra')
+    const pend = lancamentos.filter(l => l.formaId === f.id && l.status === 'pendente' && (temFatura(f) ? ehFatura(l) : l.origem?.tipo === 'compra'))
       .reduce((s, l) => s + cent(l.valor), 0);
     return { forma: f.nome, falta: reais(pend), limiteLivre: f.limite != null ? reais(cent(f.limite) - pend) : null };
   });
@@ -290,11 +290,55 @@ export function anteciparCompra(compra, lancamentos, { valorPago, data, pagoPor 
 export const ehBeneficio = f => f?.tipo === 'beneficio';
 /** Pago na hora: dinheiro, Pix/débito e benefício, à vista, com data de hoje ou antes */
 export const pagaNaHora = (f, parcelas, data, hoje) => parcelas === 1 && data <= hoje && ['pix', 'dinheiro', 'debito', 'beneficio'].includes(f?.tipo);
-/** Só o que sai do caixa (salário/vale): tira o que foi pago com benefício */
+// ── Faturas de cartão ────────────────────────────────────────────────
+/** Formas que têm fatura mensal: o que se paga é a FATURA; as compras nelas são só o detalhe */
+export const temFatura = f => f?.tipo === 'cartao' || f?.tipo === 'crediario';
+export const idFatura = (formaId, comp) => `fatura_${formaId}_${comp}`;
+export const ehFatura = l => l?.origem?.tipo === 'fatura';
+
+/**
+ * Faturas do cartão, mês a mês. Se o valor foi informado (lançamento de fatura salvo), vale ele.
+ * Se não, o app estima pela soma das compras/parcelas daquele mês naquele cartão (estimada: true).
+ * Retorna [{ fatura, detalhes }].
+ */
+export function faturas(lancamentos, formas) {
+  const cartoes = Object.fromEntries(formas.filter(temFatura).map(f => [f.id, f]));
+  const grupos = new Map();
+  const grupo = (formaId, comp) => {
+    const k = idFatura(formaId, comp);
+    if (!grupos.has(k)) grupos.set(k, { formaId, comp, salva: null, detalhes: [] });
+    return grupos.get(k);
+  };
+  for (const l of lancamentos) {
+    if (!cartoes[l.formaId]) continue;
+    if (ehFatura(l)) grupo(l.formaId, l.competencia).salva = l;
+    else grupo(l.formaId, l.competencia).detalhes.push(l);
+  }
+  return [...grupos.values()].map(g => {
+    const f = cartoes[g.formaId];
+    if (g.salva) return { fatura: g.salva, detalhes: g.detalhes };
+    const soma = g.detalhes.reduce((t, l) => t + cent(l.valor), 0);
+    const data = dataNoMes(g.comp, f.diaVencimento || 15);
+    const todasPagas = g.detalhes.length && g.detalhes.every(l => l.status === 'pago');
+    return { detalhes: g.detalhes, fatura: {
+      id: idFatura(g.formaId, g.comp), descricao: `Fatura ${f.nome}`, valor: reais(soma), estimada: true, confirmado: false,
+      data, dataOriginal: data, competencia: g.comp, quinzena: quinzenaDe(data), formaId: g.formaId, categoriaId: 'cartoes',
+      status: todasPagas ? 'pago' : 'pendente', pagoEm: todasPagas ? data : null, historico: [],
+      origem: { tipo: 'fatura', formaId: g.formaId } } };
+  });
+}
+
+/**
+ * Só o que sai do caixa (salário/vale): tira o que foi pago com benefício (vale mercado) e troca as
+ * compras feitas em cartão pela fatura do mês (informada ou estimada).
+ */
 export function doCaixa(lancamentos, formas) {
   const ben = new Set(formas.filter(ehBeneficio).map(f => f.id));
-  return ben.size ? lancamentos.filter(l => !ben.has(l.formaId)) : lancamentos;
+  const cart = new Set(formas.filter(temFatura).map(f => f.id));
+  const resto = lancamentos.filter(l => !ben.has(l.formaId) && !cart.has(l.formaId));
+  return cart.size ? [...resto, ...faturas(lancamentos, formas).map(x => x.fatura)] : resto;
 }
+
 /** Saldo do benefício no mês: crédito mensal − gastos do mês com ele */
 export function saldoBeneficio(forma, lancamentos, comp) {
   const gastos = lancamentos.filter(l => l.formaId === forma.id && l.data.slice(0, 7) === comp);
@@ -306,4 +350,21 @@ export function gastosDiaADia(compras, lancamentos, comp, formas = []) {
   const ids = new Set(compras.filter(c => c.parcelas === 1 && !c.importado).map(c => c.id));
   const naHora = new Set(formas.filter(f => ['pix', 'dinheiro', 'debito', 'beneficio'].includes(f.tipo)).map(f => f.id));
   return lancamentos.filter(l => l.origem?.tipo === 'compra' && ids.has(l.origem.id) && l.data.slice(0, 7) === comp && naHora.has(l.formaId));
+}
+
+/** Lançamentos de fatura com o valor informado (ex.: da planilha), de `desde` em diante */
+export function faturasInformadas(valores, formas, desde) {
+  const porId = Object.fromEntries(formas.map(f => [f.id, f]));
+  const out = [];
+  for (const [fid, meses] of Object.entries(valores)) {
+    const f = porId[fid]; if (!f || fid.startsWith('_')) continue;
+    for (const [comp, valor] of Object.entries(meses)) {
+      if (comp < desde) continue;
+      const data = dataNoMes(comp, f.diaVencimento || 15);
+      out.push({ id: idFatura(fid, comp), descricao: `Fatura ${f.nome}`, valor, data, dataOriginal: data, competencia: comp,
+        quinzena: quinzenaDe(data), formaId: fid, categoriaId: 'cartoes', status: 'pendente', pagoEm: null, confirmado: true,
+        historico: [], origem: { tipo: 'fatura', formaId: fid } });
+    }
+  }
+  return out;
 }

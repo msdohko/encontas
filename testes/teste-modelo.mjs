@@ -88,5 +88,17 @@ ok(an.length === 7 && an.every(l => l.status === 'pago' && l.competencia === '20
   'quitar antes por R$ 1.300: as 7 restantes saem da 2ª quinzena de dezembro');
 ok(an[0].valorOriginal === 200, 'quitação guarda o valor original de cada parcela');
 
+console.log('\nFaturas de cartão');
+const fm = [{ id: 'cd', nome: 'Condor', tipo: 'cartao', diaVencimento: 15 }, { id: 'px', nome: 'Pix', tipo: 'pix' }];
+const cel = M.gerarParcelas({ id: 'cel', nome: 'Celular', valorTotal: 120, parcelas: 3, formaId: 'cd', primeiraData: '2026-11-15' }, fm[0]);
+const alug = { ...M.gerarParcelas({ id: 'al', nome: 'Aluguel', valorTotal: 900, parcelas: 1, formaId: 'px', primeiraData: '2026-11-01' }, fm[1])[0] };
+let cx = M.doCaixa([...cel, alug], fm);
+ok(cx.length === 4 && cx.filter(M.ehFatura).every(f => f.estimada && f.valor === 40), 'sem valor informado: fatura estimada pela soma das compras');
+ok(!cx.some(l => l.origem?.id === 'cel'), 'compras do cartão não somam de novo nas quinzenas');
+const inf = M.faturasInformadas({ cd: { '2026-11': 403 } }, fm, '2026-11');
+cx = M.doCaixa([...cel, alug, ...inf], fm);
+ok(cx.find(l => l.id === 'fatura_cd_2026-11').valor === 403 && cx.filter(M.ehFatura).length === 3, 'fatura informada (R$ 403) vale no lugar da soma');
+ok(M.resumoFormas(fm, cx)[0].falta === 483, 'cartão: falta = faturas pendentes (403 + 40 + 40)');
+
 console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTudo certo');
 process.exit(falhas ? 1 : 0);

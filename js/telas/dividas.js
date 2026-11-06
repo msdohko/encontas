@@ -4,7 +4,7 @@ import { mesAno } from './compra.js';
 
 export function render(ctx) {
   const d = ctx.dados;
-  const formas = M.resumoFormas(d.formas, d.lancamentos).map((r, i) => ({ ...r, f: d.formas[i] })).filter(r => r.falta > 0 || r.f.limite);
+  const formas = M.resumoFormas(d.formas, M.doCaixa(d.lancamentos, d.formas)).map((r, i) => ({ ...r, f: d.formas[i] })).filter(r => r.falta > 0 || r.f.limite);
   const compras = d.compras.filter(c => c.parcelas > 1).map(c => ({ c, r: M.resumoCompra(c, d.lancamentos) })).filter(x => x.r.total);
   const ativas = compras.filter(x => !x.r.quitada).sort((a, b) => a.r.termina.localeCompare(b.r.termina));
   const quitadas = compras.filter(x => x.r.quitada);
@@ -20,10 +20,10 @@ export function render(ctx) {
     <span class="parc__info">${esc(d.formas.find(f => f.id === c.formaId)?.nome || '')}, ${r.pagas} de ${r.total} pagas${r.quitada ? '' : `, termina em ${mesAno(r.termina)}`}</span>
   </a></li>`;
 
-  return `<p class="dividas-total"><span>Falta pagar em parcelamentos</span><strong>${brl(total)}</strong></p>
+  return `<p class="dividas-total"><span>Falta pagar em faturas e parcelamentos</span><strong>${brl(total)}</strong></p>
   ${liberaLogo.length ? `<p class="aviso-bom">Até o fim do mês que vem terminam: ${liberaLogo.map(x => `<strong>${esc(x.c.nome)}</strong> (${brl(x.r.proxima?.valor || 0)}/mês)`).join(', ')}.</p>` : ''}
 
-  ${ativas.length ? `<h2 class="bloco__titulo">Parcelamentos <span class="contador contador--neutro">${ativas.length}</span></h2>
+  ${ativas.length ? `<h2 class="bloco__titulo">Compras parceladas <span class="contador contador--neutro">${ativas.length}</span></h2>
   <ul class="parcs">${ativas.map(itemCompra).join('')}</ul>` : ''}
 
   ${formas.length ? `<h2 class="bloco__titulo dividas__sub">Por cartão e forma de pagamento</h2>

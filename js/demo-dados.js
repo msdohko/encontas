@@ -1,4 +1,4 @@
-// Dados de exemplo (planilha Contas) usados só no modo demonstração
+// Dados da planilha Contas: usados no modo demonstração e na importação
 export default {
  "_sobre": "Dados de exemplo tirados da planilha Contas.numbers (ago–dez/2026). Itens com 'confirmar' precisam da sua revisão.",
  "casa": {
@@ -333,9 +333,21 @@ export default {
   }
  ],
  "ajustes": [
-  {"recorrenteId": "recarga", "competencia": "2026-08", "valor": 60},
-  {"recorrenteId": "recarga", "competencia": "2026-09", "valor": 60},
-  {"recorrenteId": "recarga", "competencia": "2026-10", "valor": 60},
+  {
+   "recorrenteId": "recarga",
+   "competencia": "2026-08",
+   "valor": 60
+  },
+  {
+   "recorrenteId": "recarga",
+   "competencia": "2026-09",
+   "valor": 60
+  },
+  {
+   "recorrenteId": "recarga",
+   "competencia": "2026-10",
+   "valor": 60
+  },
   {
    "recorrenteId": "luz",
    "competencia": "2026-11",
@@ -348,31 +360,44 @@ export default {
   }
  ],
  "planilhaFaturas": {
-  "_sobre": "Faturas digitadas na planilha (out–dez). A diferença para as parcelas detalhadas = compras que ainda não estão cadastradas.",
+  "_sobre": "Valor da fatura de cada cartão por mês, tirado da tabela principal (Contas). É o que se paga; as compras do Resumo são só o detalhe.",
+  "bancopan": {
+   "2026-10": 513.09,
+   "2026-11": 308.44,
+   "2026-12": 131.56
+  },
   "santander": {
    "2026-10": 1043.43,
    "2026-11": 733.45,
-   "2026-12": 733.45
+   "2026-12": 733.45,
+   "2027-01": 568.27,
+   "2027-02": 495.15,
+   "2027-03": 495.15,
+   "2027-04": 413.84,
+   "2027-05": 413.84,
+   "2027-06": 187.64,
+   "2027-07": 187.64,
+   "2027-08": 187.64,
+   "2027-09": 187.64
   },
   "picpay": {
    "2026-10": 56.14,
    "2026-11": 477.93,
-   "2026-12": 56.18
+   "2026-12": 56.18,
+   "2027-01": 56.14,
+   "2027-02": 56.18
   },
   "sansclub": {
    "2026-10": 101.74,
    "2026-11": 226.04,
-   "2026-12": 101.74
+   "2026-12": 101.74,
+   "2027-01": 101.74,
+   "2027-02": 101.74
   },
   "condor": {
    "2026-10": 528.23,
    "2026-11": 403.0,
    "2026-12": 78.41
-  },
-  "bancopan": {
-   "2026-10": 513.09,
-   "2026-11": 308.44,
-   "2026-12": 131.56
   },
   "shopee": {
    "2026-10": 250.43,

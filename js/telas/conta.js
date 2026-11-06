@@ -8,18 +8,20 @@ const dataLonga = iso => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 
 
 // ── Linha da lista ───────────────────────────────────────────────────
 export function linhaConta(ctx, l, { comCategoria = false, titulo = null } = {}) {
-  const d = ctx.dados, sit = M.situacao(l, ctx.hoje);
-  const forma = d.formas.find(f => f.id === l.formaId)?.nome;
+  const d = ctx.dados, fo = d.formas.find(f => f.id === l.formaId);
+  const detalhe = M.temFatura(fo) && !M.ehFatura(l);
+  const sit = detalhe ? 'detalhe' : M.situacao(l, ctx.hoje);
+  const forma = fo?.nome;
   const cat = d.categorias.find(c => c.id === l.categoriaId);
   const sub = [forma, l.status === 'pago' && l.pagoPor ? `pago por ${l.pagoPor}` : null, M.foiAdiado(l) && l.status !== 'pago' && !(l.historico || []).every(h => h.acao !== 'adiou' || h.motivo === 'Data estava errada') ? 'adiada' : null]
     .filter(Boolean).join(', ');
-  return `<li class="conta conta--${sit}" data-lanc="${esc(l.id)}" tabindex="0" aria-label="${esc(l.descricao)}, ${brl(l.valor)}, ${ROTULO_SITUACAO[sit]}. Abrir detalhes">
+  return `<li class="conta conta--${sit}" data-lanc="${esc(l.id)}" tabindex="0" aria-label="${esc(l.descricao)}, ${brl(l.valor)}, ${detalhe ? 'na fatura' : ROTULO_SITUACAO[sit]}. Abrir detalhes">
     <span class="conta__data">${dataCurta(l.data)}</span>
     <span class="conta__nome">${esc(titulo || l.descricao)}<small>${esc(sub)}</small></span>
     ${comCategoria ? `<span class="conta__cat"><i style="background:${esc(cat?.cor || '#999')}"></i>${esc(cat?.nome || 'Sem categoria')}</span>` : ''}
     <span class="conta__valor">${l.confirmado === false ? '≈ ' : ''}${brl(l.valor)}</span>
-    <span class="selo selo--${sit}">${ROTULO_SITUACAO[sit]}</span>
-    ${l.status === 'pago'
+    <span class="selo selo--${sit}">${detalhe ? 'Na fatura' : ROTULO_SITUACAO[sit]}</span>
+    ${detalhe ? '<span class="conta__pagar conta__pagar--vazio" aria-hidden="true"></span>' : l.status === 'pago'
       ? `<span class="conta__pagar conta__pagar--feito" aria-hidden="true">${ICONES.check}</span>`
       : `<button type="button" class="conta__pagar" data-pagar="${esc(l.id)}" aria-label="Marcar ${esc(l.descricao)} como pago">${ICONES.check}</button>`}
   </li>`;
@@ -57,6 +59,7 @@ function frase(h, l) {
 
 function origemTexto(ctx, l) {
   const o = l.origem || {};
+  if (o.tipo === 'fatura') return l.estimada ? 'Fatura do cartão, estimada pelas compras' : 'Fatura do cartão, valor informado';
   if (o.tipo === 'recorrente') return 'Conta fixa, lançada automaticamente todo mês';
   if (o.tipo === 'assinatura') return 'Assinatura, lançada automaticamente todo mês';
   if (o.tipo === 'compra') {
@@ -68,9 +71,12 @@ function origemTexto(ctx, l) {
 
 // ── Painel de detalhe ────────────────────────────────────────────────
 export function abrirConta(ctx, id) {
-  const l = ctx.dados.lancamentos.find(x => x.id === id);
+  const d = ctx.dados;
+  const l = d.lancamentos.find(x => x.id === id) || M.doCaixa(d.lancamentos, d.formas).find(x => x.id === id);
   if (!l) return;
-  const d = ctx.dados, sit = M.situacao(l, ctx.hoje), eu = A.quem(ctx).nome;
+  const fo = d.formas.find(f => f.id === l.formaId), eFatura = M.ehFatura(l), eDetalhe = M.temFatura(fo) && !eFatura;
+  const sit = M.situacao(l, ctx.hoje), eu = A.quem(ctx).nome;
+  const itensFatura = eFatura ? (M.faturas(d.lancamentos, d.formas).find(x => x.fatura.id === l.id)?.detalhes || []) : [];
   const forma = d.formas.find(f => f.id === l.formaId)?.nome || 'Não informado';
   const cat = d.categorias.find(c => c.id === l.categoriaId)?.nome || 'Sem categoria';
   const pessoas = pessoasDaCasa(d).filter(p => p !== 'Casa');
@@ -90,7 +96,14 @@ export function abrirConta(ctx, id) {
       <div><dt>Origem</dt><dd>${esc(origemTexto(ctx, l))}${l.origem?.de > 1 && d.compras.some(c => c.id === l.origem.id) ? `<small><a href="#/compra/${esc(l.origem.id)}" data-ver-compra>Ver a compra completa</a></small>` : ''}</dd></div>
     </dl>
 
-    ${l.status === 'pendente' ? `
+    ${eFatura ? `<div class="fatura-itens"><h3 class="detalhe__sub">${l.estimada ? 'Estimada pela soma das compras abaixo' : 'Compras que compõem esta fatura'}</h3>
+      ${itensFatura.length ? `<ul class="fatura-lista">${itensFatura.sort((a, b) => b.valor - a.valor).map(x => `<li><span>${esc(x.descricao)}</span><span>${brl(x.valor)}</span></li>`).join('')}
+        <li class="fatura-lista__total"><span>Soma das compras detalhadas</span><span>${brl(itensFatura.reduce((t, x) => t + x.valor, 0))}</span></li>
+        ${!l.estimada && Math.abs(l.valor - itensFatura.reduce((t, x) => t + x.valor, 0)) > 0.004 ? `<li class="fatura-lista__total"><span>Outras compras (não detalhadas)</span><span>${brl(l.valor - itensFatura.reduce((t, x) => t + x.valor, 0))}</span></li>` : ''}</ul>`
+        : '<p class="nada">Nenhuma compra detalhada neste mês. O valor é o da fatura informada.</p>'}
+      ${l.estimada ? '<p class="detalhe__nota">Quando a fatura fechar, use "Mudar data ou valor" (ou confirme no Início) com o valor real.</p>' : ''}</div>` : ''}
+    ${eDetalhe ? `<p class="aviso-bom">Esta compra é só o detalhe da fatura do ${esc(fo.nome)}. O que se paga é a fatura do mês, então ela não soma de novo nas quinzenas.
+      <br><button type="button" class="link-mais" data-abrir-fatura="${esc(M.idFatura(l.formaId, l.competencia))}">Abrir a fatura de ${nomeMes(l.competencia).split(' ')[0]}</button></p>` : l.status === 'pendente' ? `
     <div class="detalhe__acoes">
       <button type="button" class="btn" data-mostrar="pagar">Marcar como pago</button>
       <button type="button" class="btn btn--sec" data-mostrar="adiar">Mudar data ou valor</button>
@@ -117,12 +130,13 @@ export function abrirConta(ctx, id) {
 
     <h3 class="detalhe__sub">Histórico</h3>
     ${hist.length ? `<ol class="historico">${hist.map(h => `<li><span>${esc(frase(h, l))}</span><time>${h.em ? quando(h.em) : ''}</time></li>`).join('')}</ol>`
-      : `<p class="nada">${esc(origemTexto(ctx, l) || 'Sem alterações ainda.')}. Nenhuma alteração até agora.</p>`}
+      : `<p class="nada">Nenhuma alteração até agora.</p>`}
   </div>`;
 
   abrirFolha({ titulo: esc(l.descricao), corpo, ligar: (el, fechar) => {
     const pronto = (msg, acao) => { fechar(); ctx.render(); toast(msg, acao); };
     el.querySelector('[data-ver-compra]')?.addEventListener('click', () => fechar());
+    el.querySelector('[data-abrir-fatura]')?.addEventListener('click', e => { const fid = e.currentTarget.dataset.abrirFatura; fechar(); abrirConta(ctx, fid); });
     el.querySelectorAll('[data-mostrar]').forEach(b => b.addEventListener('click', () => {
       el.querySelectorAll('[data-form]').forEach(f => { f.hidden = f.dataset.form !== b.dataset.mostrar; });
       el.querySelector(`[data-form="${b.dataset.mostrar}"] input`)?.focus();

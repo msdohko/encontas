@@ -24,7 +24,7 @@ export function paraConfirmar(ctx) {
   const entradas = receitasDe(ctx, [M.somarMesesComp(comp, -1), comp, M.somarMesesComp(comp, 1)])
     .filter(r => r.aConfirmar && r.data <= limite)
     .map(r => ({ tipo: 'entrada', r, fonte: ctx.dados.fontes.find(f => f.id === r.fonteId) }));
-  const contas = ctx.dados.lancamentos.filter(l => l.confirmado === false && l.status === 'pendente' && l.data <= daqui10)
+  const contas = M.doCaixa(ctx.dados.lancamentos, ctx.dados.formas).filter(l => l.confirmado === false && l.status === 'pendente' && l.data <= daqui10)
     .sort((a, b) => a.data.localeCompare(b.data)).map(l => ({ tipo: 'conta', l }));
   return [...entradas, ...contas];
 }
@@ -49,7 +49,7 @@ function cartaoConfirmar(x, i) {
     <form class="confirmar__form"><input name="valor" inputmode="decimal" value="${valorParaCampo(x.r.valor)}" aria-label="Valor que caiu">
     <button class="btn btn--peq">Confirmar</button></form></li>`;
   return `<li class="confirmar__item" data-i="${i}">
-    <p><strong>Chegou a conta de ${esc(x.l.descricao)}?</strong><small>Vence ${dataCurta(x.l.data)}. Estimado: ${brl(x.l.valor)}</small></p>
+    <p><strong>${M.ehFatura(x.l) ? `Fechou a ${esc(x.l.descricao.toLowerCase().replace('fatura', 'fatura do'))}?` : `Chegou a conta de ${esc(x.l.descricao)}?`}</strong><small>Vence ${dataCurta(x.l.data)}. Estimado: ${brl(x.l.valor)}</small></p>
     <form class="confirmar__form"><input name="valor" inputmode="decimal" value="${valorParaCampo(x.l.valor)}" aria-label="Valor da conta">
     <button class="btn btn--peq">Confirmar</button></form></li>`;
 }

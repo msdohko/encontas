@@ -36,27 +36,39 @@ export async function lancarEntrada(ctx, { fonteId, valor, data, descricao, ref 
 }
 
 // ── Mexer num lançamento ─────────────────────────────────────────────
-const achar = (ctx, id) => ctx.dados.lancamentos.find(x => x.id === id);
+const achar = (ctx, id) => ctx.dados.lancamentos.find(x => x.id === id)
+  || (id.startsWith('fatura_') ? M.doCaixa(ctx.dados.lancamentos, ctx.dados.formas).find(x => x.id === id) : undefined);
 const salvarLanc = (ctx, l, acao, extra) => aplicar(ctx.dados, [{ set: 'lancamentos', dados: l },
   atividade(ctx, acao, { colecao: 'lancamentos', id: l.id, descricao: l.descricao, valor: l.valor }, extra)]);
 
 /** Conta de valor variável (luz…): confirma o valor que chegou */
 export async function confirmarValor(ctx, id, valor) {
   const l = achar(ctx, id);
-  const novo = M.comEvento({ ...l, valor, confirmado: true }, M.evento('confirmou', quem(ctx), agora(), { valorDe: l.valor, valorPara: valor }));
+  const novo = M.comEvento({ ...l, valor, confirmado: true, estimada: false }, M.evento('confirmou', quem(ctx), agora(), { valorDe: l.valor, valorPara: valor }));
   await salvarLanc(ctx, novo, 'confirmou', { valorDe: l.valor });
+}
+
+/** Ao pagar (ou desfazer) uma fatura, as compras dela acompanham, para o progresso dos parcelamentos */
+function detalhesDaFatura(ctx, fatura) {
+  return M.faturas(ctx.dados.lancamentos, ctx.dados.formas).find(x => x.fatura.id === fatura.id)?.detalhes || [];
 }
 
 export async function pagar(ctx, id, { pagoPor, data, valorPago } = {}) {
   const l = achar(ctx, id);
   const novo = M.pagar(l, { pagoPor: pagoPor || quem(ctx).nome, data: data || ctx.hoje, valorPago }, quem(ctx), agora());
-  await salvarLanc(ctx, novo, 'pagou', { pagoPor: novo.pagoPor });
+  const extra = M.ehFatura(l) ? detalhesDaFatura(ctx, l).filter(x => x.status !== 'pago')
+    .map(x => ({ set: 'lancamentos', dados: { ...x, status: 'pago', pagoEm: novo.pagoEm, pagoPor: novo.pagoPor, pagoNaFatura: true } })) : [];
+  await aplicar(ctx.dados, [{ set: 'lancamentos', dados: novo }, ...extra,
+    atividade(ctx, 'pagou', { colecao: 'lancamentos', id: novo.id, descricao: novo.descricao, valor: novo.valor }, { pagoPor: novo.pagoPor })]);
   return novo;
 }
 
 export async function desfazerPagamento(ctx, id) {
-  const novo = M.desfazerPagamento(achar(ctx, id), quem(ctx), agora());
-  await salvarLanc(ctx, novo, 'desfez');
+  const l = achar(ctx, id), novo = M.desfazerPagamento(l, quem(ctx), agora());
+  const extra = M.ehFatura(l) ? detalhesDaFatura(ctx, l).filter(x => x.pagoNaFatura)
+    .map(x => ({ set: 'lancamentos', dados: { ...x, status: 'pendente', pagoEm: null, pagoPor: null, pagoNaFatura: false } })) : [];
+  await aplicar(ctx.dados, [{ set: 'lancamentos', dados: novo }, ...extra,
+    atividade(ctx, 'desfez', { colecao: 'lancamentos', id: novo.id, descricao: novo.descricao, valor: novo.valor })]);
   return novo;
 }
 
@@ -170,24 +182,12 @@ export async function importarPlanilha(ctx) {
   const limpar = ({ confirmar, ...o }) => o;
   const compras = D.compras.map(c => ({ ...limpar(c), criadoPor: eu.uid, criadoPorNome: eu.nome, criadoEm: em, importado: true }));
   const lanc = compras.flatMap(c => M.gerarParcelas(c, porId[c.formaId]));
-  // faturas digitadas na planilha que não estão detalhadas → "outras compras" (só meses de agora em diante)
-  for (const [fid, porMes] of Object.entries(D.planilhaFaturas)) {
-    if (fid.startsWith('_')) continue;
-    for (const [comp, valor] of Object.entries(porMes)) {
-      if (comp < compHoje) continue;
-      const det = lanc.filter(l => l.formaId === fid && l.competencia === comp).reduce((s, l) => s + M.cent(l.valor), 0);
-      const dif = M.cent(valor) - det;
-      if (dif <= 0) continue;
-      const c = { id: `fatura-${fid}-${comp}`, nome: `${porId[fid].nome}: outras compras`, valorTotal: M.reais(dif), parcelas: 1,
-        formaId: fid, categoriaId: 'cartoes', primeiraData: `${comp}-${M.pad(porId[fid].diaVencimento)}`, importado: true };
-      compras.push(c); lanc.push(...M.gerarParcelas(c, porId[fid]));
-    }
-  }
   const lancs = lanc.map(l => l.data < hoje ? { ...l, status: 'pago', pagoEm: l.data, confirmado: true } : l)
     .map(l => M.comEvento(l, M.evento('importou', eu, em)));
   const recorrentes = D.recorrentes.map(r => ({ ...limpar(r), criadoPor: eu.uid, criadoPorNome: eu.nome, criadoEm: em }));
   const ate = M.somarMesesComp(compHoje, 12);
-  const lancRec = recorrentes.flatMap(r => M.sincronizarRecorrente(r, ctx.dados.lancamentos, compHoje, ate).criar);
+  const lancRec = recorrentes.flatMap(r => M.sincronizarRecorrente(r, ctx.dados.lancamentos, compHoje, ate).criar)
+    .map(l => { const a = D.ajustes.find(x => x.recorrenteId === l.origem.id && x.competencia === l.competencia); return a ? { ...l, valor: a.valor } : l; });
   const entradas = D.entradas.filter(e => e.fonteId === 'salario').map(e => ({ ...e, criadoPor: eu.uid, criadoPorNome: eu.nome, criadoEm: em }));
   const ops = [
     ...formas.map(d => ({ set: 'formas', dados: d })),
@@ -195,10 +195,40 @@ export async function importarPlanilha(ctx) {
     ...entradas.map(d => ({ set: 'entradas', dados: d })),
     ...recorrentes.map(d => ({ set: 'recorrentes', dados: d })),
     ...compras.map(d => ({ set: 'compras', dados: d })),
-    ...[...lancs, ...lancRec].map(d => ({ set: 'lancamentos', dados: d })),
+    ...[...lancs, ...lancRec, ...M.faturasInformadas(D.planilhaFaturas, formas, compHoje)].map(d => ({ set: 'lancamentos', dados: d })),
     atividade(ctx, 'importou', { colecao: 'casa', id: 'planilha', descricao: 'os dados da planilha Contas', valor: null },
       { compras: D.compras.length, contas: recorrentes.length }),
   ];
   await aplicar(ctx.dados, ops);
   return { formas: formas.length, compras: D.compras.length, contas: recorrentes.length };
+}
+
+/**
+ * Corrige casas importadas antes da regra de faturas: apaga as "outras compras" de cartão e cria as faturas
+ * com o valor da planilha. As compras detalhadas ficam como detalhe da fatura. Mês já pago continua pago.
+ */
+export async function corrigirFaturas(ctx) {
+  const D = (await import('./demo-dados.js')).default, d = ctx.dados, compHoje = ctx.hoje.slice(0, 7), em = agora(), eu = quem(ctx);
+  const velhas = d.compras.filter(c => c.id.startsWith('fatura-'));
+  const idsVelhas = new Set(velhas.map(c => c.id));
+  const lancVelhos = d.lancamentos.filter(l => idsVelhas.has(l.origem?.id));
+  const novas = M.faturasInformadas(D.planilhaFaturas, d.formas, compHoje)
+    .filter(f => !d.lancamentos.some(l => l.id === f.id))
+    .map(f => {
+      const antes = d.lancamentos.filter(l => l.formaId === f.formaId && l.competencia === f.competencia && !M.ehFatura(l));
+      const pago = antes.length && antes.every(l => l.status === 'pago');
+      const ref = antes.find(l => l.status === 'pago');
+      return M.comEvento(pago ? { ...f, status: 'pago', pagoEm: ref.pagoEm, pagoPor: ref.pagoPor || null } : f, M.evento('importou', eu, em));
+    });
+  const luz = D.ajustes.map(a => d.lancamentos.find(l => l.id === `${a.recorrenteId}_${a.competencia}` && l.status === 'pendente' && l.confirmado === false
+    && a.competencia >= compHoje)).filter(Boolean).map(l => ({ ...l, valor: D.ajustes.find(a => l.id === `${a.recorrenteId}_${a.competencia}`).valor }));
+  await aplicar(d, [
+    ...luz.map(l => ({ set: 'lancamentos', dados: l })),
+    ...velhas.map(c => ({ apagar: 'compras', id: c.id })),
+    ...lancVelhos.map(l => ({ apagar: 'lancamentos', id: l.id })),
+    ...novas.map(l => ({ set: 'lancamentos', dados: l })),
+    { casa: { faturasCorrigidas: true } },
+    atividade(ctx, 'alterou', { colecao: 'casa', id: 'faturas', descricao: 'as faturas dos cartões conforme a planilha', valor: null }),
+  ]);
+  return { removidas: velhas.length, criadas: novas.length };
 }

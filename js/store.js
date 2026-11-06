@@ -175,16 +175,7 @@ async function demo() {
     ...D.recorrentes.flatMap(r => M.gerarRecorrentes(r, '2027-10')),
   ];
   D.ajustes.forEach(a => { const l = lanc.find(l => l.origem.id === a.recorrenteId && l.competencia === a.competencia); if (l) { l.valor = a.valor; l.confirmado = true; } });
-  for (const [fid, porMes] of Object.entries(D.planilhaFaturas)) {
-    if (fid.startsWith('_')) continue;
-    for (const [comp, valor] of Object.entries(porMes)) {
-      const det = lanc.filter(l => l.formaId === fid && l.competencia === comp).reduce((s, l) => s + M.cent(l.valor), 0);
-      const dif = M.cent(valor) - det;
-      if (dif > 0) lanc.push(...M.gerarParcelas({ id: `${fid}-${comp}`, nome: `${formaPorId[fid].nome}: outras compras`,
-        valorTotal: M.reais(dif), parcelas: 1, formaId: fid, categoriaId: 'cartoes',
-        primeiraData: `${comp}-${M.pad(formaPorId[fid].diaVencimento)}` }, formaPorId[fid]));
-    }
-  }
+  lanc.push(...M.faturasInformadas(D.planilhaFaturas, D.formas, '2026-10'));
   // Situação de exemplo: pago até 22/out, exceto luz e fatura Condor da 2ª quinzena de outubro
   const emAberto = l => l.competencia === '2026-10' && l.quinzena === 2 && (l.origem.id === 'luz' || l.formaId === 'condor');
   lanc = lanc.map(l => (l.data < '2026-10-15' || (l.data < '2026-10-23' && !emAberto(l))) ? { ...M.marcarPago(l, l.data), confirmado: true } : l);

@@ -19,6 +19,11 @@ export function render(ctx) {
     <ul class="menu">${link('#/diaadia', 'Dia a dia', d.formas.some(M.ehBeneficio) ? `vale mercado: ${brl(d.formas.filter(M.ehBeneficio).reduce((s, f) => s + M.saldoBeneficio(f, d.lancamentos, comp).saldo, 0))} livre` : 'gastos à vista e vale mercado')}
       ${link('#/atividade', 'Atividade', ultima ? `última: ${esc(ultima.nome)}` : 'quem fez o quê')}</ul>
   </section>
+  ${!ctx.modoDemo && !d.casa.faturasCorrigidas && d.compras.some(c => c.id.startsWith('fatura-')) ? `<section class="bloco bloco--importar">
+    <h2 class="bloco__titulo">Corrigir as faturas dos cartões</h2>
+    <p class="intro">Os cartões passam a ter uma conta "Fatura" por mês com o valor da planilha (até set/2027). As compras detalhadas (celulares, Guitarra, Havan…) viram só o detalhe dentro da fatura e param de somar duas vezes. O que você já ajustou nas outras contas não muda.</p>
+    <button class="btn" data-acao="corrigir-faturas">Corrigir faturas</button>
+  </section>` : ''}
   ${!ctx.modoDemo && !d.compras.some(c => c.importado) ? `<section class="bloco bloco--importar">
     <h2 class="bloco__titulo">Começar com a planilha</h2>
     <p class="intro">Traz da planilha Contas os cartões, o salário e o vale, as contas fixas, os parcelamentos e as faturas em aberto. O que venceu antes de hoje entra como pago. Depois é só conferir e ajustar.</p>
@@ -62,6 +67,11 @@ export function ligar(el, ctx) {
     const b = e.currentTarget; b.disabled = true; b.textContent = 'Importando…';
     try { const r = await A.importarPlanilha(ctx); ctx.render(); toast(`Importado: ${r.compras} parcelamentos, ${r.contas} contas fixas e ${r.formas} formas de pagamento`); }
     catch (err) { console.error(err); toast('Não foi possível importar: ' + err.message); b.disabled = false; b.textContent = 'Importar dados da planilha'; }
+  });
+  el.querySelector('[data-acao=corrigir-faturas]')?.addEventListener('click', async e => {
+    const b = e.currentTarget; b.disabled = true; b.textContent = 'Corrigindo…';
+    try { const r = await A.corrigirFaturas(ctx); ctx.render(); toast(`Pronto: ${r.criadas} faturas criadas a partir da planilha`); }
+    catch (err) { console.error(err); toast('Não foi possível corrigir: ' + err.message); b.disabled = false; b.textContent = 'Corrigir faturas'; }
   });
   el.querySelector('[data-acao=sair]')?.addEventListener('click', () => ctx.store.sair());
   el.querySelector('[data-acao=convite]')?.addEventListener('click', async e => {

@@ -445,3 +445,13 @@ small { color: var(--tinta-2); font-size: .8125rem; }
 .entrada__dica { max-width: 32ch; margin: -.75rem 0 0; color: var(--tinta-2); font-size: .875rem; }
 .erro-carregar { max-width: 360px; display: grid; gap: .75rem; text-align: center; } .erro-carregar p { margin: 0; }
 .dica { margin: .75rem 0 0; font-size: .8125rem; color: var(--tinta-2); }
+
+/* ══ Faturas de cartão ════════════════════════════════════════════════ */
+.selo--detalhe { color: var(--q1); }
+.conta--detalhe::before { background: var(--q1); opacity: .5; }
+.conta__pagar--vazio { box-shadow: none; cursor: default; }
+.fatura-itens { margin: 1rem 0; }
+.fatura-lista { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--linha); }
+.fatura-lista li { display: flex; justify-content: space-between; gap: 1rem; padding: .5rem 0; border-bottom: 1px solid var(--linha); font-size: .9375rem; }
+.fatura-lista__total { font-weight: 600; color: var(--tinta-2); }
+.aviso-bom .link-mais { border: 0; background: none; padding: 0; color: var(--pinho); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
