@@ -8,7 +8,7 @@ const lembrar = (k, v) => { try { v === undefined ? (v = localStorage.getItem(k)
 /** Sugestão de data da 1ª parcela: no cartão/boleto é o próximo vencimento; no Pix/dinheiro é hoje */
 function dataSugerida(forma, hoje) {
   if (!forma || !PARCELA_NO_VENCIMENTO.includes(forma.tipo)) return hoje;
-  if (M.temFatura(forma)) return M.vencimentoDaCompra(forma, hoje);
+  if (M.temFatura(forma)) return hoje; // cartão: pede a data da COMPRA; a fatura é calculada
   const comp = hoje.slice(0, 7), d = M.dataNoMes(comp, forma.diaVencimento);
   return d > hoje ? d : M.dataNoMes(M.somarMesesComp(comp, 1), forma.diaVencimento);
 }
@@ -94,10 +94,11 @@ function ligarSaida(f, ctx) {
 
   function previa() {
     const v = lerValor(f.valor.value), n = Math.max(1, Number(f.parcelas.value) || 1), data = f.data.value;
-    f.querySelector('[data-rot-data]').textContent = n > 1 ? '1ª parcela em' : 'Data';
+    const fx = formaDe();
+    f.querySelector('[data-rot-data]').textContent = M.temFatura(fx) ? 'Data da compra' : PARCELA_NO_VENCIMENTO.includes(fx?.tipo) ? (n > 1 ? '1ª parcela vence em' : 'Vence em') : 'Data';
     const p = f.querySelector('.previa');
     if (!(v > 0) || !data) { p.textContent = ''; return; }
-    const ps = M.gerarParcelas({ id: 'x', nome: '', valorTotal: v, parcelas: n, primeiraData: data }, formaDe());
+    const ps = M.gerarParcelas({ id: 'x', nome: '', valorTotal: v, parcelas: n, primeiraData: M.temFatura(formaDe()) ? M.vencimentoDaCompra(formaDe(), data) : data }, formaDe());
     const ult = ps.at(-1);
     const fz = formaDe();
     f.querySelector('[data-ja-fatura]').hidden = !M.temFatura(fz);

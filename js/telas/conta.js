@@ -117,7 +117,7 @@ export function abrirConta(ctx, id) {
       <div><dt>Categoria</dt><dd>${esc(cat)}</dd></div>
       ${l.pessoa ? `<div><dt>Quem gastou</dt><dd>${esc(l.pessoa)}</dd></div>` : ''}
       ${l.status === 'pago' ? `<div><dt>Pago</dt><dd>${l.pagoPor ? `por ${esc(l.pagoPor)} ` : ''}em ${dataLonga(l.pagoEm)}</dd></div>` : ''}
-      <div><dt>Origem</dt><dd>${esc(origemTexto(ctx, l))}${l.origem?.de > 1 && d.compras.some(c => c.id === l.origem.id) ? `<small><a href="#/compra/${esc(l.origem.id)}" data-ver-compra>Ver a compra completa</a></small>` : ''}</dd></div>
+      <div><dt>Origem</dt><dd>${esc(origemTexto(ctx, l))}${l.origem?.tipo === 'compra' && d.compras.some(c => c.id === l.origem.id) ? `<small><a href="#/compra/${esc(l.origem.id)}" data-ver-compra>${l.origem.de > 1 ? 'Ver a compra completa' : 'Ver ou editar a compra'}</a></small>` : ''}</dd></div>
     </dl>
 
     ${eFatura ? composicaoFatura(l, itensFatura) : ''}

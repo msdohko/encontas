@@ -97,6 +97,9 @@ function abrirEdicaoCompra(ctx, c) {
     { n: 'valorTotal', r: 'Valor total da compra', t: 'dinheiro', obrig: true },
     { n: 'parcelas', r: 'Número de parcelas', t: 'inteiro', obrig: true, ajuda: r.pagas ? `${r.pagas} já pagas. O que falta é redividido nas parcelas restantes.` : '' },
     { n: 'formaId', r: 'Onde desconta', t: 'lista', obrig: true, op: d.formas.filter(f => f.ativo !== false || f.id === c.formaId).map(f => [f.id, f.nome]) },
+    { n: 'dataCompra', r: 'Data da compra', t: 'data', se: v => M.temFatura(d.formas.find(f => f.id === v.formaId)),
+      ajuda: 'O app coloca a 1ª parcela na fatura certa pelo dia de fechamento do cartão.' },
+    { n: 'primeiraData', r: '1ª parcela vence em', t: 'data', se: v => !M.temFatura(d.formas.find(f => f.id === v.formaId)) },
     { n: 'categoriaId', r: 'Categoria', t: 'lista', op: [...d.categorias].sort((a, b) => a.ordem - b.ordem).map(x => [x.id, x.nome]) },
     { n: 'pessoa', r: 'Quem gastou', sugestoes: pessoasDaCasa(d) },
   ];
@@ -106,13 +109,18 @@ function abrirEdicaoCompra(ctx, c) {
       const v = { valorTotal: lerValor(form.valorTotal.value), parcelas: Number(form.parcelas.value) };
       try {
         const forma = d.formas.find(f => f.id === form.formaId.value);
-        const ed = M.editarCompra(c, d.lancamentos, { ...c, ...v, formaId: form.formaId.value }, forma, A.quem(ctx), '');
+        const dc = form.dataCompra && !form.dataCompra.disabled ? form.dataCompra.value : '';
+        const pd = M.temFatura(forma) ? (dc ? M.vencimentoDaCompra(forma, dc) : c.primeiraData) : (form.primeiraData?.value || c.primeiraData);
+        const ed = M.editarCompra(c, d.lancamentos, { ...c, ...v, formaId: form.formaId.value, primeiraData: pd }, forma, A.quem(ctx), '');
         const pend = ed.salvar.filter(l => l.status !== 'pago').sort((a, b) => a.data.localeCompare(b.data));
-        prev.innerHTML = pend.length ? `Ficam <strong>${pend.length}x de ${brl(pend[0].valor)}</strong>, a última em ${mesAno(pend.at(-1).data)}.` : '';
+        prev.innerHTML = pend.length ? `Ficam <strong>${pend.length}x de ${brl(pend[0].valor)}</strong>, da fatura de ${mesAno(pend[0].data)} até ${mesAno(pend.at(-1).data)}.` : '';
       } catch (e) { prev.textContent = e.message; }
     });
     ligarForm(form, campos, async v => {
-      await A.editarCompra(ctx, c.id, { ...v, parcelas: Number(v.parcelas) });
+      const mud = { ...v, parcelas: Number(v.parcelas) };
+      if (!mud.dataCompra) delete mud.dataCompra;
+      if (!mud.primeiraData) delete mud.primeiraData;
+      await A.editarCompra(ctx, c.id, mud);
       fechar(); ctx.render(); toast('Compra atualizada');
     });
   } });

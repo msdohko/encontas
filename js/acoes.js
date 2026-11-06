@@ -16,9 +16,11 @@ function atividade(ctx, acao, alvo, extra = {}) {
 // ── Lançar ───────────────────────────────────────────────────────────
 export async function lancarCompra(ctx, { nome, valorTotal, parcelas, formaId, categoriaId, data, pessoa, jaNaFatura }) {
   const forma = ctx.dados.formas.find(f => f.id === formaId), em = agora();
-  const compra = { id: novoId(), nome, valorTotal, parcelas, formaId, categoriaId, primeiraData: data, pessoa,
+  // cartão: `data` é a data da compra; a 1ª parcela vai para a fatura certa pelo fechamento
+  const cartao = M.temFatura(forma), primeiraData = cartao ? M.vencimentoDaCompra(forma, data) : data;
+  const compra = { id: novoId(), nome, valorTotal, parcelas, formaId, categoriaId, primeiraData, ...(cartao ? { dataCompra: data } : {}), pessoa,
     criadoPor: ctx.usuario.uid, criadoPorNome: quem(ctx).nome, criadoEm: em };
-  const naHora = M.pagaNaHora(forma, parcelas, data, ctx.hoje);
+  const naHora = !cartao && M.pagaNaHora(forma, parcelas, data, ctx.hoje);
   const lancs = M.gerarParcelas(compra, forma).map(l => M.comEvento(l, M.evento('lancou', quem(ctx), em)))
     .map(l => naHora ? { ...l, status: 'pago', pagoEm: data, pagoPor: pessoa || quem(ctx).nome, confirmado: true } : l)
     .map(l => jaNaFatura ? { ...l, naBase: true } : l);
@@ -138,6 +140,7 @@ const acharCompra = (ctx, id) => ctx.dados.compras.find(c => c.id === id);
 export async function editarCompra(ctx, compraId, mud) {
   const c = acharCompra(ctx, compraId);
   const forma = ctx.dados.formas.find(f => f.id === (mud.formaId || c.formaId));
+  if (M.temFatura(forma) && mud.dataCompra) mud = { ...mud, primeiraData: M.vencimentoDaCompra(forma, mud.dataCompra) };
   const r = M.editarCompra(c, ctx.dados.lancamentos, mud, forma, quem(ctx), agora());
   await aplicar(ctx.dados, [{ set: 'compras', dados: r.compra }, ...r.salvar.map(l => ({ set: 'lancamentos', dados: l })),
     ...r.apagar.map(id => ({ apagar: 'lancamentos', id })),
