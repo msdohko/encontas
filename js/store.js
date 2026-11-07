@@ -175,6 +175,8 @@ async function demo() {
     ...D.recorrentes.flatMap(r => M.gerarRecorrentes(r, '2027-10')),
   ];
   D.ajustes.forEach(a => { const l = lanc.find(l => l.origem.id === a.recorrenteId && l.competencia === a.competencia); if (l) { l.valor = a.valor; l.confirmado = true; } });
+  const P = (await import('./planilha-2026-11-07.js')).default;
+  for (const [fid, meses] of Object.entries(P.faturas)) Object.assign(D.planilhaFaturas[fid] ||= {}, meses);
   lanc.push(...M.faturasInformadas(D.planilhaFaturas, D.formas, '2026-10'));
   // Situação de exemplo: pago até 22/out, exceto luz e fatura Condor da 2ª quinzena de outubro
   const emAberto = l => l.competencia === '2026-10' && l.quinzena === 2 && (l.origem.id === 'luz' || l.formaId === 'condor');

@@ -19,6 +19,11 @@ export function render(ctx) {
     <ul class="menu">${link('#/diaadia', 'Dia a dia', d.formas.some(M.ehBeneficio) ? `vale mercado: ${brl(d.formas.filter(M.ehBeneficio).reduce((s, f) => s + M.saldoBeneficio(f, d.lancamentos, comp).saldo, 0))} livre` : 'gastos à vista e vale mercado')}
       ${link('#/atividade', 'Atividade', ultima ? `última: ${esc(ultima.nome)}` : 'quem fez o quê')}</ul>
   </section>
+  ${!ctx.modoDemo && d.compras.some(c => c.importado) && d.casa.planilhaVersao !== '2026-11-07' ? `<section class="bloco bloco--importar">
+    <h2 class="bloco__titulo">Atualizar com a planilha de 07/11</h2>
+    <p class="intro">Coloca nas faturas os valores novos da planilha (nov/26 a set/27), encerra o Empréstimo Pan, que saiu da planilha, e marca as compras do cartão que você já lançou como "já incluídas" nesses meses, para não somarem duas vezes. O que já está pago continua pago.</p>
+    <button class="btn" data-acao="planilha-0711">Atualizar valores</button>
+  </section>` : ''}
   ${!ctx.modoDemo && !d.casa.faturasCorrigidas && d.compras.some(c => c.id.startsWith('fatura-')) ? `<section class="bloco bloco--importar">
     <h2 class="bloco__titulo">Corrigir as faturas dos cartões</h2>
     <p class="intro">Os cartões passam a ter uma conta "Fatura" por mês com o valor da planilha (até set/2027). As compras detalhadas (celulares, Guitarra, Havan…) viram só o detalhe dentro da fatura e param de somar duas vezes. O que você já ajustou nas outras contas não muda.</p>
@@ -61,6 +66,8 @@ export function render(ctx) {
   </section>`;
 }
 
+const d0 = ctx => ctx.dados;
+
 export function ligar(el, ctx) {
   el.querySelectorAll('input[name=tema]').forEach(i => i.addEventListener('change', () => ctx.aplicarTema(i.value)));
   el.querySelector('[data-acao=importar]')?.addEventListener('click', async e => {
@@ -72,6 +79,15 @@ export function ligar(el, ctx) {
     const b = e.currentTarget; b.disabled = true; b.textContent = 'Corrigindo…';
     try { const r = await A.corrigirFaturas(ctx); ctx.render(); toast(`Pronto: ${r.criadas} faturas criadas a partir da planilha`); }
     catch (err) { console.error(err); toast('Não foi possível corrigir: ' + err.message); b.disabled = false; b.textContent = 'Corrigir faturas'; }
+  });
+  el.querySelector('[data-acao=planilha-0711]')?.addEventListener('click', async e => {
+    const b = e.currentTarget; b.disabled = true; b.textContent = 'Atualizando…';
+    try {
+      if (!d0(ctx).casa.faturasCorrigidas && d0(ctx).compras.some(c => c.id.startsWith('fatura-'))) await A.corrigirFaturas(ctx);
+      const P = (await import('../planilha-2026-11-07.js')).default;
+      const r = await A.aplicarPlanilha(ctx, P); ctx.render();
+      toast(`Atualizado: ${r.faturas} faturas${r.encerradas.length ? `, ${r.encerradas.join(', ')} encerrado` : ''}`);
+    } catch (err) { console.error(err); toast('Não foi possível atualizar: ' + err.message); b.disabled = false; b.textContent = 'Atualizar valores'; }
   });
   el.querySelector('[data-acao=sair]')?.addEventListener('click', () => ctx.store.sair());
   el.querySelector('[data-acao=convite]')?.addEventListener('click', async e => {

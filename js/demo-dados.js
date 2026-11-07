@@ -225,8 +225,7 @@ export default {
    "formaId": "emprestimo",
    "categoriaId": "dividas",
    "inicio": "2026-09",
-   "fim": null,
-   "confirmar": "quantas parcelas faltam? vira compra parcelada"
+   "fim": "2026-10"
   }
  ],
  "compras": [

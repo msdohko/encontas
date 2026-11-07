@@ -206,6 +206,8 @@ export async function importarPlanilha(ctx) {
       { compras: D.compras.length, contas: recorrentes.length }),
   ];
   await aplicar(ctx.dados, ops);
+  // valores mais recentes da planilha (07/11/2026)
+  await aplicarPlanilha(ctx, (await import('./planilha-2026-11-07.js')).default);
   return { formas: formas.length, compras: D.compras.length, contas: recorrentes.length };
 }
 
@@ -237,4 +239,57 @@ export async function corrigirFaturas(ctx) {
     atividade(ctx, 'alterou', { colecao: 'casa', id: 'faturas', descricao: 'as faturas dos cartões conforme a planilha', valor: null }),
   ]);
   return { removidas: velhas.length, criadas: novas.length };
+}
+
+/**
+ * Aplica uma planilha atualizada: o valor de cada fatura passa a ser o da planilha (o que já foi pago continua
+ * pago), as compras/assinaturas já lançadas nesses meses viram "já incluídas" (não somam de novo), contas que
+ * saíram são encerradas e as previsões de contas variáveis são atualizadas.
+ */
+export async function aplicarPlanilha(ctx, P) {
+  const d = ctx.dados, compHoje = ctx.hoje.slice(0, 7), em = agora(), eu = quem(ctx), ops = [];
+  const formas = Object.fromEntries(d.formas.map(f => [f.id, f]));
+  const cobre = (fid, comp) => comp >= compHoje && comp <= P.ate && formas[fid];
+  let faturasN = 0, marcadas = 0;
+  // 1) faturas
+  for (const [fid, meses] of Object.entries(P.faturas)) {
+    if (!formas[fid]) continue;
+    for (const nova of M.faturasInformadas({ [fid]: meses }, d.formas, compHoje)) {
+      const atual = d.lancamentos.find(l => l.id === nova.id);
+      const base = atual && atual.status === 'pago'
+        ? { ...atual, valorInformado: nova.valor }
+        : { ...(atual || nova), valor: nova.valor, valorInformado: nova.valor, valorFinal: false, estimada: false, confirmado: true };
+      ops.push({ set: 'lancamentos', dados: M.comEvento(base, M.evento('importou', eu, em, atual ? { valorDe: atual.valorInformado ?? atual.valor, valorPara: nova.valor } : {})) });
+      faturasN++;
+    }
+  }
+  // faturas salvas que a planilha nova não tem (dentro do período coberto): some se não foi paga
+  for (const l of d.lancamentos) {
+    if (!M.ehFatura(l) || l.status === 'pago' || !cobre(l.formaId, l.competencia)) continue;
+    if (!(P.faturas[l.formaId] || {})[l.competencia]) ops.push({ apagar: 'lancamentos', id: l.id });
+  }
+  // 2) compras e assinaturas já lançadas nos meses da planilha: já estão no valor da fatura
+  for (const l of d.lancamentos) {
+    if (M.ehFatura(l) || !M.temFatura(formas[l.formaId]) || l.naBase || !cobre(l.formaId, l.competencia)) continue;
+    ops.push({ set: 'lancamentos', dados: { ...l, naBase: true } }); marcadas++;
+  }
+  // 3) contas que saíram da planilha
+  const encerradas = [];
+  for (const [rid, fim] of Object.entries(P.encerrar || {})) {
+    const r = d.recorrentes.find(x => x.id === rid);
+    if (!r || (r.fim && r.fim <= fim)) continue;
+    const novo = { ...r, fim };
+    const s = M.sincronizarRecorrente(novo, d.lancamentos, compHoje, M.somarMesesComp(compHoje, 12));
+    ops.push({ set: 'recorrentes', dados: novo }, ...s.apagar.map(id => ({ apagar: 'lancamentos', id })));
+    encerradas.push(r.nome);
+  }
+  // 4) previsões de contas variáveis (só se ainda não confirmadas)
+  for (const a of P.ajustes || []) {
+    const l = d.lancamentos.find(x => x.id === `${a.recorrenteId}_${a.competencia}` && x.status === 'pendente' && x.confirmado === false);
+    if (l) ops.push({ set: 'lancamentos', dados: { ...l, valor: a.valor } });
+  }
+  ops.push({ casa: { planilhaVersao: P.versao } },
+    atividade(ctx, 'alterou', { colecao: 'casa', id: 'planilha', descricao: `os valores pela planilha de ${P.versao.split('-').reverse().join('/')}`, valor: null }));
+  await aplicar(d, ops);
+  return { faturas: faturasN, marcadas, encerradas };
 }
