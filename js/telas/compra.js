@@ -29,16 +29,36 @@ export function render(ctx) {
     <div class="barra barra--grossa" role="img" aria-label="${r.pagas} de ${r.total} parcelas pagas"><span style="width:${pct}%"></span></div>
     <p class="compra-resumo__info">${r.pagas} de ${r.total} parcelas pagas${r.quitada ? (c.encerradaEm ? `, encerrada em ${dataCurta(c.encerradaEm)}` : `, quitada em ${dataCurta(r.parcelas.map(l => l.pagoEm || l.data).sort().at(-1))}`) : r.termina ? `, termina em ${mesAno(r.termina)}` : ''}</p>
     ${r.proxima ? `<p class="compra-resumo__info">Próxima: <strong>${brl(r.proxima.valor)}</strong> em ${dataCurta(r.proxima.data)} (${nomeQ(r.proxima.competencia, r.proxima.quinzena)})</p>` : ''}
+    ${c.parcelas > 1 ? (() => {
+      const contratado = r.parcelas.reduce((t, l) => t + (l.valorOriginal ?? l.valor), 0);
+      const economia = r.parcelas.filter(l => l.status === 'pago' && l.valorOriginal != null).reduce((t, l) => t + (l.valorOriginal - l.valor), 0);
+      return `<dl class="compra-numeros">
+        <div><dt>Valor contratado</dt><dd>${brl(contratado)}</dd></div>
+        <div><dt>Já pago</dt><dd>${brl(r.pago)}</dd></div>
+        <div class="positivo"><dt>Economia com antecipações</dt><dd>${brl(economia)}</dd></div>
+        <div><dt>Vai pagar no total</dt><dd>${brl(contratado - economia)}<small>${economia > 0 ? 'contratado menos a economia; cai mais a cada antecipação' : 'sem antecipações ainda'}</small></dd></div>
+      </dl>`; })() : ''}
   </section>
+  ${(() => {
+    const grupos = {};
+    r.parcelas.filter(l => l.status === 'pago' && (l.historico || []).some(h => h.acao === 'antecipou')).forEach(l => {
+      const h = [...l.historico].reverse().find(x => x.acao === 'antecipou');
+      (grupos[h.para] ||= []).push(l);
+    });
+    const datas = Object.keys(grupos).sort().reverse();
+    return datas.length ? `<section class="bloco antecipacoes"><h2 class="bloco__titulo">Antecipações</h2><ul>${datas.map(dt => {
+      const ls = grupos[dt].sort((a, b) => a.origem.parcela - b.origem.parcela);
+      const pago = ls.reduce((t, l) => t + l.valor, 0), cheio = ls.reduce((t, l) => t + (l.valorOriginal ?? l.valor), 0);
+      return `<li><div class="antecipacoes__topo"><strong>${dataCurta(dt)}/${dt.slice(0, 4)}</strong><span>${brl(pago)}</span></div>
+        <small>${ls.map(l => `${l.origem.parcela}ª (${mesAno(l.dataOriginal || l.data)}) ${brl(l.valor)}`).join(', ')}</small>
+        <small class="positivo">${ls.length} parcela${ls.length > 1 ? 's' : ''}, valor cheio ${brl(cheio)}, desconto de ${brl(cheio - pago)}${ls[0].pagoPor ? `, pago por ${esc(ls[0].pagoPor)}` : ''}</small></li>`; }).join('')}</ul></section>` : ''; })()}
 
   ${r.quitada ? '' : `<div class="detalhe__acoes">
     <button type="button" class="btn" data-mostrar>Antecipar parcelas</button>
     <button type="button" class="btn btn--sec" data-editar>Editar compra</button>
   </div>
   <form class="detalhe__form" data-form="quitar" hidden>
-    <p class="intro">Marque as parcelas que está pagando agora. Se o banco deu desconto, troque o valor de cada uma pelo valor que vai pagar.</p>
-    <label class="campo campo--check"><input type="checkbox" name="soTotal"><span>Sei só o total que paguei</span>
-      <small class="campo__ajuda">Digite o valor do boleto gerado pelo banco. O app divide o desconto pelos dias que cada parcela está sendo adiantada.</small></label>
+    <p class="intro">Marque as parcelas que está pagando e digite em cada uma o valor que o banco mostrou (com desconto).</p>
     <fieldset class="campo"><legend>Parcelas</legend>
       <div class="escolha-parcelas">
         <button type="button" class="link-mais" data-marcar="todas">Marcar todas</button>
@@ -46,7 +66,7 @@ export function render(ctx) {
       </div>
       <ul class="parcelas-check">${(() => { const pend = r.parcelas.filter(l => l.status !== 'pago'); return pend.map((l, i) => `<li>
         <label class="campo--check"><input type="checkbox" name="parc" value="${esc(l.id)}" data-valor="${l.valor}" data-venc="${l.data}" ${pend.length <= 12 || i === 0 ? 'checked' : ''}>
-        <span>Parcela ${l.origem.parcela}<small class="parcelas-check__sub">${mesAno(l.data)}, cheia ${brl(l.valor)}</small></span></label>
+        <span>${l.origem.parcela}ª parcela, ${mesAno(l.data)}<small class="parcelas-check__sub">valor cheio ${brl(l.valor)}</small></span></label>
         <input class="parcelas-check__v" name="vp" data-id="${esc(l.id)}" inputmode="decimal" value="${valorParaCampo(l.valor)}" aria-label="Valor pago da parcela ${l.origem.parcela}">
         <small class="parcelas-check__eco" data-eco="${esc(l.id)}"></small></li>`).join(''); })()}</ul>
     </fieldset>
@@ -55,13 +75,24 @@ export function render(ctx) {
         <input name="totalPago" inputmode="decimal" placeholder="Valor do boleto" hidden aria-label="Total pago ao banco"></div>
       <div class="campo"><label for="q-data">Data do pagamento</label><input id="q-data" name="data" type="date" value="${ctx.hoje}"></div>
     </div>
+    <details class="so-total"><summary>Não tem o valor de cada parcela?</summary>
+      <label class="campo campo--check"><input type="checkbox" name="soTotal"><span>Sei só o total que paguei</span>
+        <small class="campo__ajuda">Digite o valor do boleto. O app divide o desconto pelos dias que cada parcela está sendo adiantada (aproximado).</small></label>
+    </details>
     <fieldset class="campo"><legend>Quem pagou</legend><div class="chips">${chips('pagoPor', pessoas, eu)}</div></fieldset>
     <p class="previa" data-previa></p>
     <button class="btn">Confirmar pagamento</button>
   </form>`}
 
   <h2 class="bloco__titulo compra__sub">Parcelas</h2>
-  <ul class="contas contas--tabela">${r.parcelas.map(l => linhaConta(ctx, l, { titulo: `Parcela ${l.origem.parcela} de ${l.origem.de}` })).join('')}</ul>
+  ${(() => {
+    const linha = l => linhaConta(ctx, l, { titulo: `Parcela ${l.origem.parcela} de ${l.origem.de}` });
+    if (r.parcelas.length <= 12) return `<ul class="contas contas--tabela">${r.parcelas.map(linha).join('')}</ul>`;
+    const pagas = r.parcelas.filter(l => l.status === 'pago'), abertas = r.parcelas.filter(l => l.status !== 'pago').sort((a, b) => a.data.localeCompare(b.data));
+    return `<ul class="contas contas--tabela">${abertas.slice(0, 6).map(linha).join('')}</ul>
+      ${abertas.length > 6 ? `<details class="mais-parcelas"><summary>Ver as outras ${abertas.length - 6} parcelas em aberto</summary><ul class="contas contas--tabela">${abertas.slice(6).map(linha).join('')}</ul></details>` : ''}
+      ${pagas.length ? `<details class="mais-parcelas"><summary>Parcelas pagas (${pagas.length})</summary><ul class="contas contas--tabela">${pagas.map(linha).join('')}</ul></details>` : ''}`;
+  })()}
 
   <div class="compra__perigo">
     ${r.quitada ? '' : `<button type="button" class="link-perigo" data-encerrar>Encerrar: apagar só as ${r.total - r.pagas} parcelas que faltam</button>`}
