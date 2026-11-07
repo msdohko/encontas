@@ -114,6 +114,8 @@ const psn = { ...M.gerarRecorrentes({ id: 'psn', nome: 'PSN', valor: 50, diaVenc
 const infPlan = inf.map(f => M.comEvento(f, M.evento('importou', eu, 'x')));
 ok(M.doCaixa([psn, ...infPlan], fm).find(l => l.id === 'fatura_cd_2026-11').valor === 403, 'assinatura no cartão: já incluída nas faturas da planilha');
 ok(M.doCaixa([psn], fm).find(l => l.id === 'fatura_cd_2026-11').valor === 50, 'assinatura no cartão: soma na fatura estimada');
+const out = M.gerarParcelas({ id: 'ou', nome: 'Antiga', valorTotal: 90, parcelas: 1, formaId: 'cd', primeiraData: '2026-10-15' }, fm[0]);
+ok(!M.doCaixa([...out, ...inf], fm).some(l => l.id === 'fatura_cd_2026-10'), 'sem fatura estimada antes da primeira fatura informada do cartão');
 const st = { diaVencimento: 15 };
 ok(M.vencimentoDaCompra(st, '2026-11-06') === '2026-11-15' && M.vencimentoDaCompra(st, '2026-11-08') === '2026-12-15', 'sem fechamento: compra até 7 dias antes do vencimento entra no mês');
 ok(M.vencimentoDaCompra({ diaVencimento: 5, diaFechamento: 28 }, '2026-11-27') === '2026-12-05' && M.vencimentoDaCompra({ diaVencimento: 5, diaFechamento: 28 }, '2026-11-28') === '2027-01-05', 'fecha 28 e vence 5: compra no dia 28 vai para a fatura seguinte');

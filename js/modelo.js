@@ -345,7 +345,10 @@ export function faturas(lancamentos, formas) {
     if (ehFatura(l)) grupo(l.formaId, l.competencia).salva = l;
     else grupo(l.formaId, l.competencia).detalhes.push(l);
   }
-  return [...grupos.values()].map(g => {
+  // Antes da primeira fatura informada de um cartão não se estima nada: são meses anteriores ao controle no app
+  const primeira = {};
+  for (const g of grupos.values()) if (g.salva && (!primeira[g.formaId] || g.comp < primeira[g.formaId])) primeira[g.formaId] = g.comp;
+  return [...grupos.values()].filter(g => g.salva || !primeira[g.formaId] || g.comp > primeira[g.formaId]).map(g => {
     const f = cartoes[g.formaId];
     if (g.salva) {
       // valor informado + compras lançadas depois (que não estavam na conta), até o valor real ser confirmado
