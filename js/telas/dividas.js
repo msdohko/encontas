@@ -11,6 +11,8 @@ export function render(ctx) {
   if (!formas.length && !compras.length) return `<div class="vazio"><p class="vazio__titulo">Nenhuma dívida ou cartão cadastrado.</p>
     <p>Quando você lançar uma compra parcelada, ela aparece aqui com quanto falta pagar e quando termina.</p></div>`;
   const total = formas.reduce((s, r) => s + r.falta, 0);
+  const economiaDe = c => M.parcelasDa(c.id, d.lancamentos).filter(l => l.status === 'pago' && l.valorOriginal != null).reduce((t, l) => t + (l.valorOriginal - l.valor), 0);
+  const economiaTotal = compras.reduce((t, x) => t + economiaDe(x.c), 0);
   const mesQueVem = M.somarMesesComp(ctx.hoje.slice(0, 7), 1);
   const liberaLogo = ativas.filter(x => x.r.termina.slice(0, 7) <= mesQueVem);
 
@@ -18,9 +20,11 @@ export function render(ctx) {
     <span class="parc__topo"><span class="parc__nome">${esc(c.nome)}</span><span class="parc__falta">${r.quitada ? 'quitada' : brl(r.falta)}</span></span>
     <span class="barra" aria-hidden="true"><span style="width:${Math.round((r.pagas / r.total) * 100)}%"></span></span>
     <span class="parc__info">${esc(d.formas.find(f => f.id === c.formaId)?.nome || '')}, ${r.pagas} de ${r.total} pagas${r.quitada ? '' : `, termina em ${mesAno(r.termina)}`}</span>
+    ${economiaDe(c) > 0.004 ? `<span class="parc__eco">Economia com antecipações: ${brl(economiaDe(c))}</span>` : ''}
   </a></li>`;
 
   return `<p class="dividas-total"><span>Falta pagar em faturas e parcelamentos</span><strong>${brl(total)}</strong></p>
+  ${economiaTotal > 0.004 ? `<p class="aviso-bom">Vocês já economizaram <strong>${brl(economiaTotal)}</strong> antecipando parcelas.</p>` : ''}
   ${liberaLogo.length ? `<p class="aviso-bom">Até o fim do mês que vem terminam: ${liberaLogo.map(x => `<strong>${esc(x.c.nome)}</strong> (${brl(x.r.proxima?.valor || 0)}/mês)`).join(', ')}.</p>` : ''}
 
   ${ativas.length ? `<h2 class="bloco__titulo">Compras parceladas <span class="contador contador--neutro">${ativas.length}</span></h2>
