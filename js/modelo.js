@@ -133,7 +133,10 @@ export function estimativaFonte(fonte, entradas) {
  */
 export function receitasNoPeriodo(fontes, entradas, comps) {
   const alvo = new Set(comps);
-  const out = entradas.filter(e => alvo.has(e.competencia)).map(e => ({ ...e, previsto: false, aConfirmar: false }));
+  // entrada prevista (13º, férias, PLR…): entra na conta pelo valor estimado (ou 0 se "a definir") até ser confirmada
+  const out = entradas.filter(e => alvo.has(e.competencia)).map(e => e.prevista
+    ? { ...e, valor: e.valor ?? 0, semValor: e.valor == null, previsto: true, aConfirmar: true }
+    : { ...e, previsto: false, aConfirmar: false });
   for (const f of fontes) {
     if (f.ativo === false || f.tipo === 'eventual' || !f.dia) continue;
     const meses = new Set(comps.flatMap(c => [somarMesesComp(c, -1), c]));
@@ -271,8 +274,9 @@ export function editarCompra(compra, lancamentos, mud, forma, quem, emISO) {
  * Quitar antes: paga TODAS as parcelas pendentes de uma vez, na data informada, pelo valor combinado
  * (com desconto). O dinheiro sai da quinzena do pagamento e as quinzenas futuras ficam livres.
  */
-export function anteciparCompra(compra, lancamentos, { valorPago, data, pagoPor }, quem, emISO) {
-  const pend = parcelasDa(compra.id, lancamentos).filter(l => l.status !== 'pago');
+export function anteciparCompra(compra, lancamentos, { valorPago, data, pagoPor, ids }, quem, emISO) {
+  // ids: só as parcelas escolhidas (ex.: antecipar as de jan, fev e mar do carro); sem ids, todas as que faltam
+  const pend = parcelasDa(compra.id, lancamentos).filter(l => l.status !== 'pago' && (!ids || ids.includes(l.id)));
   if (!pend.length) throw new Error('Essa compra já está quitada.');
   const totalPend = pend.reduce((s, l) => s + cent(l.valor), 0), alvo = cent(valorPago ?? reais(totalPend));
   let usado = 0;

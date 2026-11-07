@@ -2,6 +2,7 @@ import * as M from '../modelo.js';
 import { brl, esc, seletorMes, dataCurta, ROTULO_SITUACAO } from '../ui.js';
 import { painelDoMes, receitasDe } from './inicio.js';
 import { linhaConta, ligarContas } from './conta.js';
+import { linhaEntrada, ligarEntradas } from './entrada.js';
 
 export function render(ctx) {
   const d = ctx.dados, v = ctx.quinzenaVista;
@@ -24,9 +25,7 @@ export function render(ctx) {
     <div><dt>A pagar</dt><dd>${brl(resumo.aPagar)}</dd></div>
     <div class="${resumo.saldo < 0 ? 'negativo' : 'positivo'}"><dt>${resumo.saldo < 0 ? 'Falta' : 'Sobra'}</dt><dd>${brl(Math.abs(resumo.saldo))}</dd></div>
   </dl>
-  ${entradas.length ? `<ul class="entradas" aria-label="Entradas">${entradas.map(r => `<li class="${r.previsto ? 'entrada--prevista' : ''}">
-    <span>${esc(r.descricao || fonte(r.fonteId))}<small>${r.previsto ? `previsto, cai ${dataCurta(r.data)}` : `entrou ${dataCurta(r.data)}`}</small></span>
-    <strong>+ ${brl(r.valor)}</strong></li>`).join('')}</ul>` : ''}
+  ${entradas.length ? `<ul class="entradas" aria-label="Entradas">${entradas.map(r => linhaEntrada(ctx, r)).join('')}</ul>` : ''}
   ${itens.length ? `<ul class="contas contas--tabela">
     <li class="contas__cab" aria-hidden="true"><span>Vence</span><span>Conta</span><span>Categoria</span><span>Valor</span><span>Situação</span><span></span></li>
     ${itens.map(l => linhaConta(ctx, l, { comCategoria: true })).join('')}
@@ -37,6 +36,7 @@ export function render(ctx) {
 
 export function ligar(el, ctx) {
   ligarContas(el, ctx);
+  ligarEntradas(el, ctx);
   el.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => {
     ctx.quinzenaVista = b.dataset.q === 'mes' ? 'mes' : Number(b.dataset.q); ctx.render();
   }));

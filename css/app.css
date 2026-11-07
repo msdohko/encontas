@@ -456,3 +456,14 @@ small { color: var(--tinta-2); font-size: .8125rem; }
 .fatura-lista__total { font-weight: 600; color: var(--tinta-2); }
 .aviso-bom .link-mais { border: 0; background: none; padding: 0; color: var(--pinho); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .fatura-lista__grupo { font-weight: 600; } .fatura-lista__total { border-top: 2px solid var(--linha); }
+.entradas li[data-entrada] { cursor: pointer; }
+.entradas--bloco { box-shadow: none; padding: 0; background: none; margin: 0; }
+.entrada--prevista strong { font-style: italic; }
+.escolha-parcelas { display: flex; gap: 1rem; margin-bottom: .25rem; }
+.escolha-parcelas .link-mais { margin: 0; border: 0; background: none; padding: 0; color: var(--pinho); font: inherit; font-weight: 600; cursor: pointer; }
+.parcelas-check { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow: auto; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--linha); }
+.parcelas-check li + li { border-top: 1px solid var(--linha); }
+.parcelas-check label { display: flex; align-items: center; gap: .6rem; padding: .5rem .75rem; cursor: pointer; }
+.parcelas-check input { width: 20px; height: 20px; accent-color: var(--pinho); }
+.parcelas-check span:first-of-type { flex: 1; } .parcelas-check small { margin-left: .35rem; }
+.parcelas-check__v { font-weight: 600; }

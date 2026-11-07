@@ -149,9 +149,9 @@ export async function editarCompra(ctx, compraId, mud) {
   return r.compra;
 }
 
-export async function anteciparCompra(ctx, compraId, { valorPago, data, pagoPor }) {
+export async function anteciparCompra(ctx, compraId, { valorPago, data, pagoPor, ids }) {
   const c = acharCompra(ctx, compraId);
-  const ls = M.anteciparCompra(c, ctx.dados.lancamentos, { valorPago, data, pagoPor: pagoPor || quem(ctx).nome }, quem(ctx), agora());
+  const ls = M.anteciparCompra(c, ctx.dados.lancamentos, { valorPago, data, pagoPor: pagoPor || quem(ctx).nome, ids }, quem(ctx), agora());
   const original = ls.reduce((s, l) => s + M.cent(l.valorOriginal), 0);
   await aplicar(ctx.dados, [...ls.map(l => ({ set: 'lancamentos', dados: l })),
     atividade(ctx, 'quitou', { colecao: 'compras', id: compraId, descricao: c.nome, valor: valorPago },
@@ -292,4 +292,26 @@ export async function aplicarPlanilha(ctx, P) {
     atividade(ctx, 'alterou', { colecao: 'casa', id: 'planilha', descricao: `os valores pela planilha de ${P.versao.split('-').reverse().join('/')}`, valor: null }));
   await aplicar(d, ops);
   return { faturas: faturasN, marcadas, encerradas };
+}
+
+// ── Entradas previstas: 13º, férias, PLR (data e valor podem ainda não ser conhecidos) ─────
+export async function preverEntrada(ctx, { id, fonteId, descricao, valor, data }) {
+  const e = { id: id || novoId(), fonteId, descricao, valor: valor > 0 ? valor : null, data, prevista: true, ref: null,
+    ...M.destinoEntrada(data), pessoa: ctx.dados.fontes.find(f => f.id === fonteId)?.pessoa ?? null,
+    criadoPor: ctx.usuario.uid, criadoPorNome: quem(ctx).nome, criadoEm: agora() };
+  await aplicar(ctx.dados, [{ set: 'entradas', dados: e },
+    atividade(ctx, id ? 'alterou' : 'previu', { colecao: 'entradas', id: e.id, descricao, valor: e.valor })]);
+  return e;
+}
+/** Caiu: vira entrada de verdade, com o valor e a data reais */
+export async function confirmarEntrada(ctx, id, { valor, data }) {
+  const e = ctx.dados.entradas.find(x => x.id === id);
+  const novo = { ...e, valor, data: data || e.data, ...M.destinoEntrada(data || e.data), prevista: false, confirmadaEm: agora(), confirmadaPor: quem(ctx).nome };
+  await aplicar(ctx.dados, [{ set: 'entradas', dados: novo },
+    atividade(ctx, 'confirmou-entrada', { colecao: 'entradas', id, descricao: e.descricao, valor })]);
+  return novo;
+}
+export async function excluirEntrada(ctx, id) {
+  const e = ctx.dados.entradas.find(x => x.id === id);
+  await aplicar(ctx.dados, [{ apagar: 'entradas', id }, atividade(ctx, 'excluiu', { colecao: 'entradas', id, descricao: e?.descricao || 'entrada', valor: e?.valor ?? null })]);
 }

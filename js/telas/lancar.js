@@ -53,12 +53,16 @@ export function render(ctx) {
 
   const fontes = d.fontes.filter(f => f.ativo !== false);
   const entrada = fontes.length ? `<form class="lancar" data-form="entrada" novalidate>
-    <label class="lancar__valor lancar__valor--entrada"><span>Valor que entrou</span>
-      <input name="valor" inputmode="decimal" autocomplete="off" placeholder="0,00" required aria-label="Valor em reais"></label>
+    <label class="campo campo--check lancar__previsao"><input type="checkbox" name="prevista">
+      <span>Ainda não caiu: é uma previsão</span>
+      <small class="campo__ajuda">Para 13º, férias, PLR… Pode deixar o valor em branco e usar uma data aproximada. O app pergunta quando cair.</small></label>
+    <label class="lancar__valor lancar__valor--entrada"><span data-rot-valor>Valor que entrou</span>
+      <input name="valor" inputmode="decimal" autocomplete="off" placeholder="0,00" aria-label="Valor em reais"></label>
     <fieldset class="campo"><legend>De onde veio</legend><div class="chips">${chips('fonteId', fontes.map(f => [f.id, f.nome]), fontes[0].id)}</div></fieldset>
     <div class="lancar__linha">
-      <div class="campo"><label for="e-data">Data</label><input id="e-data" name="data" type="date" value="${ctx.hoje}" required></div>
-      <div class="campo"><label for="e-desc">Descrição (opcional)</label><input id="e-desc" name="descricao" placeholder="Ex.: venda de chaveiros"></div>
+      <div class="campo"><label for="e-data" data-rot-edata>Data</label><input id="e-data" name="data" type="date" value="${ctx.hoje}" required></div>
+      <div class="campo"><label for="e-desc">Descrição</label><input id="e-desc" name="descricao" placeholder="Ex.: 13º salário, PLR, venda" list="e-sug" autocomplete="off">
+        <datalist id="e-sug"><option value="13º salário (1ª parcela)"><option value="13º salário (2ª parcela)"><option value="Férias coletivas"><option value="PLR"><option value="Abono"></datalist></div>
     </div>
     <p class="previa" aria-live="polite"></p>
     <p class="form__erro" role="alert" hidden></p>
@@ -138,16 +142,26 @@ function ligarSaida(f, ctx) {
 
 function ligarEntrada(f, ctx) {
   const previa = () => {
+    const prev = f.prevista.checked;
+    f.querySelector('[data-rot-valor]').textContent = prev ? 'Valor previsto (em branco = a definir)' : 'Valor que entrou';
+    f.querySelector('[data-rot-edata]').textContent = prev ? 'Data prevista (aproximada)' : 'Data';
     const p = f.querySelector('.previa'); if (!f.data.value) return;
     const dest = M.destinoEntrada(f.data.value);
-    p.innerHTML = `Entra na <strong>${nomeQ(dest.competencia, dest.quinzena)}</strong>.`;
+    p.innerHTML = `${prev ? 'Previsão: entra' : 'Entra'} na <strong>${nomeQ(dest.competencia, dest.quinzena)}</strong>.`;
   };
   f.addEventListener('input', previa); f.addEventListener('change', previa); previa();
   f.addEventListener('submit', async e => {
     e.preventDefault();
     const valor = lerValor(f.valor.value);
-    if (!(valor > 0)) return erro(f, 'Digite o valor.'), f.valor.focus();
     const fonte = ctx.dados.fontes.find(x => x.id === f.fonteId.value);
+    if (f.prevista.checked) {
+      const desc = f.descricao.value.trim();
+      if (!desc) return erro(f, 'Diga o que é (ex.: 13º salário, PLR).'), f.descricao.focus();
+      erro(f, ''); f.querySelector('.btn').disabled = true;
+      await A.preverEntrada(ctx, { fonteId: fonte.id, descricao: desc, valor: valor > 0 ? valor : null, data: f.data.value });
+      toast(`Previsão salva: ${desc}`); return ctx.render();
+    }
+    if (!(valor > 0)) return erro(f, 'Digite o valor.'), f.valor.focus();
     erro(f, ''); const btn = f.querySelector('.btn'); btn.disabled = true;
     try {
       await A.lancarEntrada(ctx, { fonteId: fonte.id, valor, data: f.data.value, descricao: f.descricao.value.trim(),

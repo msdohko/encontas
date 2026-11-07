@@ -1,6 +1,7 @@
 import * as M from '../modelo.js';
 import * as A from '../acoes.js';
 import { linhaConta, ligarContas } from './conta.js';
+import { linhaEntrada, ligarEntradas } from './entrada.js';
 import { brl, esc, seletorMes, dataCurta, nomeMesCurto, ROTULO_SITUACAO, lerValor, valorParaCampo, toast } from '../ui.js';
 
 /** Competências do início do controle até `ate` (o saldo acumulado começa no início do controle) */
@@ -45,8 +46,8 @@ function metade(p, rotulo, fonte) {
 
 function cartaoConfirmar(x, i) {
   if (x.tipo === 'entrada') return `<li class="confirmar__item" data-i="${i}">
-    <p><strong>Caiu o ${esc(x.fonte?.nome?.toLowerCase() || 'dinheiro')} de ${dataCurta(x.r.data)}?</strong><small>Previsto: ${brl(x.r.valor)} (média dos últimos meses)</small></p>
-    <form class="confirmar__form"><input name="valor" inputmode="decimal" value="${valorParaCampo(x.r.valor)}" aria-label="Valor que caiu">
+    <p><strong>${x.r.prevista ? `Já caiu ${esc(x.r.descricao || 'a entrada prevista')}?` : `Caiu o ${esc(x.fonte?.nome?.toLowerCase() || 'dinheiro')} de ${dataCurta(x.r.data)}?`}</strong><small>${x.r.prevista ? `Previsto para ~${dataCurta(x.r.data)}${x.r.semValor ? ', valor a definir' : `: ${brl(x.r.valor)}`}` : `Previsto: ${brl(x.r.valor)} (média dos últimos meses)`}</small></p>
+    <form class="confirmar__form"><input name="valor" inputmode="decimal" value="${x.r.semValor ? '' : valorParaCampo(x.r.valor)}" placeholder="0,00" aria-label="Valor que caiu">
     <button class="btn btn--peq">Confirmar</button></form></li>`;
   return `<li class="confirmar__item" data-i="${i}">
     <p><strong>${M.ehFatura(x.l) ? `Fechou a ${esc(x.l.descricao.toLowerCase().replace('fatura', 'fatura do'))}?` : `Chegou a conta de ${esc(x.l.descricao)}?`}</strong><small>Vence ${dataCurta(x.l.data)}. Estimado: ${brl(x.l.valor)}</small></p>
@@ -92,6 +93,9 @@ export function render(ctx) {
         return `<a class="vale-mini" href="#/diaadia"><span>${esc(f.nome)}</span><strong class="${s.saldo < 0 ? 'negativo' : ''}">${brl(s.saldo)} livre</strong><small>de ${brl(s.credito)}</small></a>`; }).join('')}
       ${atrasados.length ? `<section class="bloco bloco--alerta"><h2 class="bloco__titulo">Atrasadas <span class="contador">${atrasados.length}</span></h2>
         <ul class="contas">${atrasados.map(item).join('')}</ul></section>` : ''}
+      ${(() => { const prev = d.entradas.filter(e => e.prevista).sort((a, b) => a.data.localeCompare(b.data));
+        return prev.length ? `<section class="bloco"><h2 class="bloco__titulo">Entradas previstas</h2>
+          <ul class="entradas entradas--bloco">${prev.map(e => linhaEntrada(ctx, { ...e, valor: e.valor ?? 0, semValor: e.valor == null, previsto: true })).join('')}</ul></section>` : ''; })()}
       <section class="bloco"><h2 class="bloco__titulo">Próximos vencimentos</h2>
         ${proximos.length ? `<ul class="contas">${proximos.map(item).join('')}</ul>` : '<p class="nada">Nada a pagar por enquanto.</p>'}
         <p class="dica">Toque no nome da conta para mudar a data, o valor ou ver o histórico.</p>
@@ -102,12 +106,17 @@ export function render(ctx) {
 
 export function ligar(el, ctx) {
   ligarContas(el, ctx);
+  ligarEntradas(el, ctx);
   el.querySelectorAll('.confirmar__item').forEach(li => li.querySelector('form').addEventListener('submit', async e => {
     e.preventDefault();
     const x = ctx._confirmar[Number(li.dataset.i)], valor = lerValor(e.target.valor.value);
     if (!(valor >= 0)) return toast('Digite o valor.');
     e.target.querySelector('button').disabled = true;
-    if (x.tipo === 'entrada') {
+    if (x.tipo === 'entrada' && x.r.prevista) {
+      if (!(valor > 0)) { e.target.querySelector('button').disabled = false; return toast('Digite o valor que caiu.'); }
+      await A.confirmarEntrada(ctx, x.r.id, { valor, data: ctx.hoje < x.r.data ? ctx.hoje : x.r.data });
+      toast(`${x.r.descricao}: ${brl(valor)} confirmado`);
+    } else if (x.tipo === 'entrada') {
       await A.lancarEntrada(ctx, { fonteId: x.r.fonteId, valor, data: x.r.data, ref: x.r.ref });
       toast(`${x.fonte.nome}: ${brl(valor)} confirmado`);
     } else {
