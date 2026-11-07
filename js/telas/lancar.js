@@ -122,6 +122,10 @@ function ligarSaida(f, ctx) {
         + (f.jaNaFatura.checked ? ' Não soma de novo: já está no valor da fatura.' : ' Soma no valor da fatura.');
       return;
     }
+    if (M.noSalario(fz)) {
+      p.innerHTML = `${n > 1 ? `<strong>${n}x de ${brl(ps[0].valor)}</strong>, de ${dataCurta(ps[0].data)}/${ps[0].data.slice(2, 4)} a ${dataCurta(ult.data)}/${ult.data.slice(2, 4)}` : `Em ${dataCurta(ps[0].data)}`}, <strong>descontado no salário</strong>: aparece em Dívidas, mas não pesa nas quinzenas.`;
+      return;
+    }
     p.innerHTML = n === 1
       ? (M.ehBeneficio(fz) ? `Sai do saldo do <strong>${esc(fz.nome)}</strong>, não das quinzenas.`
         : M.pagaNaHora(fz, 1, data, ctx.hoje) ? `Entra como <strong>pago</strong> na ${nomeQ(ps[0].competencia, ps[0].quinzena)}.`

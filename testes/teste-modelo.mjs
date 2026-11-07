@@ -137,5 +137,13 @@ ok(M.dataCredito(vm, '2026-11') === '2026-11-20' && M.dataCredito(vm, '2026-12')
 const pv = M.periodoBeneficio(vm, '2026-12-10');
 ok(pv.inicio === '2026-11-20' && pv.proxima === '2026-12-18', 'período do vale: de 20/11 até a véspera de 18/12');
 
+const fs = [{ id: 'cg', tipo: 'consignado', descontaNoSalario: true }, { id: 'ep', tipo: 'emprestimo' }];
+const emp = [{ id: 'a', formaId: 'cg', status: 'pendente', data: '2026-11-30', valor: 300, competencia: '2026-12', quinzena: 1 },
+  { id: 'b', formaId: 'cg', status: 'pendente', data: '2026-12-30', valor: 300, competencia: '2027-01', quinzena: 1 },
+  { id: 'c', formaId: 'ep', status: 'pendente', data: '2026-11-30', valor: 200, competencia: '2026-12', quinzena: 1 }];
+ok(M.doCaixa(emp, fs).map(l => l.id).join() === 'c' && M.paraDividas(emp, fs).length === 3, 'desconto no salário: fora das quinzenas, dentro de Dívidas');
+const bx = M.baixasNoSalario(emp, fs, '2026-12-01', 'x');
+ok(bx.length === 1 && bx[0].id === 'a' && bx[0].status === 'pago', 'parcela descontada no salário dá baixa sozinha no dia');
+
 console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTudo certo');
 process.exit(falhas ? 1 : 0);

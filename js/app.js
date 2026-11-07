@@ -36,7 +36,7 @@ const ctx = {
   comp: hojeISO().slice(0, 7), quinzenaVista: Number(hojeISO().slice(8, 10)) < 15 ? 1 : 2,
   modoDemo: S.modoDemo, store: S, aplicarTema,
   render: () => desenhar(),
-  recarregar: async () => { ctx.dados = await S.carregarCasa(ctx.usuario.casaId, ctx.hoje.slice(0, 7)); desenhar(); },
+  recarregar: async () => { ctx.dados = await S.carregarCasa(ctx.usuario.casaId, ctx.hoje.slice(0, 7), ctx.hoje); desenhar(); },
 };
 if (S.modoDemo) { ctx.hoje = '2026-10-23'; ctx.comp = '2026-10'; ctx.quinzenaVista = 2; }
 
@@ -72,7 +72,7 @@ S.observarUsuario(async u => {
   try {
     ctx.usuario = await comPrazo(S.perfil(u), 20000);
     if (!ctx.usuario.casaId) return mostrarEntrada();
-    ctx.dados = await comPrazo(S.carregarCasa(ctx.usuario.casaId, ctx.hoje.slice(0, 7)), 30000);
+    ctx.dados = await comPrazo(S.carregarCasa(ctx.usuario.casaId, ctx.hoje.slice(0, 7), ctx.hoje), 30000);
     desenhar();
   } catch (e) { erroCarregar(e); }
 });

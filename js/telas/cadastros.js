@@ -95,6 +95,8 @@ export const CADASTROS = {
         op: [['antes', 'Renova na sexta antes'], ['depois', 'Renova na segunda depois'], ['nenhum', 'Renova no dia mesmo']] },
       { n: 'diaFechamento', r: 'Dia de fechamento da fatura', t: 'dia', se: v => v.tipo === 'cartao' || v.tipo === 'crediario',
         ajuda: 'Compras a partir desse dia vão para a fatura do mês seguinte. Em branco: 7 dias antes do vencimento.' },
+      { n: 'descontaNoSalario', r: 'Descontado direto no salário', t: 'check', se: v => v.tipo === 'consignado' || v.tipo === 'emprestimo',
+        ajuda: 'Marque se a parcela já sai do salário antes de cair. Aparece em Dívidas, mas não desconta das quinzenas, e dá baixa sozinha no dia.' },
       { n: 'limite', r: 'Limite', t: 'dinheiro', se: v => v.tipo === 'cartao' || v.tipo === 'crediario' },
       { n: 'ativo', r: 'Ativa', t: 'check', padrao: true },
     ],
@@ -103,7 +105,7 @@ export const CADASTROS = {
       if (ctx.dados.lancamentos.some(l => l.formaId === o.id)) throw new Error('Essa forma tem lançamentos. Desative em vez de excluir.');
       return A.excluirSimples(ctx, 'formas', o.id);
     },
-    linha: (ctx, f) => ({ nome: f.nome, sub: [TIPOS_FORMA.find(t => t[0] === f.tipo)?.[1], f.tipo === 'beneficio' ? null : `vence dia ${f.diaVencimento}`, f.diaFechamento ? `fecha dia ${f.diaFechamento}` : null, f.ativo === false ? 'inativa' : null].filter(Boolean).join(', '),
+    linha: (ctx, f) => ({ nome: f.nome, sub: [TIPOS_FORMA.find(t => t[0] === f.tipo)?.[1], f.tipo === 'beneficio' ? null : `vence dia ${f.diaVencimento}`, f.diaFechamento ? `fecha dia ${f.diaFechamento}` : null, M.noSalario(f) ? 'descontado no salário' : null, f.ativo === false ? 'inativa' : null].filter(Boolean).join(', '),
       valor: f.tipo === 'beneficio' ? `${brl(f.saldoMensal || 0)}/mês, renova dia ${f.diaCredito || 1}` : f.limite ? `limite ${brl(f.limite)}` : '' }),
     lista: d => d.formas,
   },

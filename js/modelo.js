@@ -294,6 +294,8 @@ export function anteciparCompra(compra, lancamentos, { valorPago, data, pagoPor,
 // ── Dia a dia e vale mercado (Etapa 6) ───────────────────────────────
 /** Benefício (vale mercado/alimentação): tem saldo próprio e não sai do caixa das quinzenas */
 export const ehBeneficio = f => f?.tipo === 'beneficio';
+/** Empréstimo/consignado descontado direto no salário: aparece em Dívidas, mas não pesa nas quinzenas (o salário já cai menor) */
+export const noSalario = f => !!f?.descontaNoSalario && ['consignado', 'emprestimo'].includes(f?.tipo);
 /** Pago na hora: dinheiro, Pix/débito e benefício, à vista, com data de hoje ou antes */
 export const pagaNaHora = (f, parcelas, data, hoje) => parcelas === 1 && data <= hoje && ['pix', 'dinheiro', 'debito', 'beneficio'].includes(f?.tipo);
 // ── Faturas de cartão ────────────────────────────────────────────────
@@ -374,10 +376,23 @@ export function faturas(lancamentos, formas) {
  * compras feitas em cartão pela fatura do mês (informada ou estimada).
  */
 export function doCaixa(lancamentos, formas) {
-  const ben = new Set(formas.filter(ehBeneficio).map(f => f.id));
+  const ben = new Set(formas.filter(f => ehBeneficio(f) || noSalario(f)).map(f => f.id));
   const cart = new Set(formas.filter(temFatura).map(f => f.id));
   const resto = lancamentos.filter(l => !ben.has(l.formaId) && !cart.has(l.formaId));
   return cart.size ? [...resto, ...faturas(lancamentos, formas).map(x => x.fatura)] : resto;
+}
+
+/** Para a tela de Dívidas: o que sai do caixa + parcelas descontadas no salário */
+export function paraDividas(lancamentos, formas) {
+  const sal = new Set(formas.filter(noSalario).map(f => f.id));
+  return [...doCaixa(lancamentos, formas), ...lancamentos.filter(l => sal.has(l.formaId))];
+}
+/** Parcelas descontadas no salário cuja data já chegou: dão baixa sozinhas (o desconto já aconteceu na folha) */
+export function baixasNoSalario(lancamentos, formas, hojeISO, emISO) {
+  const sal = new Set(formas.filter(noSalario).map(f => f.id));
+  return lancamentos.filter(l => sal.has(l.formaId) && l.status === 'pendente' && l.data <= hojeISO)
+    .map(l => comEvento({ ...l, status: 'pago', pagoEm: l.data, pagoPor: 'Desconto no salário', confirmado: true },
+      evento('pagou', { uid: 'encontas', nome: 'encontas' }, emISO, { pagoPor: 'Desconto no salário', data: l.data })));
 }
 
 // ── Renovação do benefício (vale mercado) ────────────────────────────

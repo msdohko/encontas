@@ -4,7 +4,7 @@ import { mesAno } from './compra.js';
 
 export function render(ctx) {
   const d = ctx.dados;
-  const formas = M.resumoFormas(d.formas, M.doCaixa(d.lancamentos, d.formas)).map((r, i) => ({ ...r, f: d.formas[i] })).filter(r => r.falta > 0 || r.f.limite);
+  const formas = M.resumoFormas(d.formas, M.paraDividas(d.lancamentos, d.formas)).map((r, i) => ({ ...r, f: d.formas[i] })).filter(r => r.falta > 0 || r.f.limite);
   const compras = d.compras.filter(c => c.parcelas > 1).map(c => ({ c, r: M.resumoCompra(c, d.lancamentos) })).filter(x => x.r.total);
   const ativas = compras.filter(x => !x.r.quitada).sort((a, b) => a.r.termina.localeCompare(b.r.termina));
   const quitadas = compras.filter(x => x.r.quitada);
@@ -19,7 +19,7 @@ export function render(ctx) {
   const itemCompra = ({ c, r }) => `<li><a class="parc" href="#/compra/${esc(c.id)}">
     <span class="parc__topo"><span class="parc__nome">${esc(c.nome)}</span><span class="parc__falta">${r.quitada ? 'quitada' : brl(r.falta)}</span></span>
     <span class="barra" aria-hidden="true"><span style="width:${Math.round((r.pagas / r.total) * 100)}%"></span></span>
-    <span class="parc__info">${esc(d.formas.find(f => f.id === c.formaId)?.nome || '')}, ${r.pagas} de ${r.total} pagas${r.quitada ? '' : `, termina em ${mesAno(r.termina)}`}</span>
+    <span class="parc__info">${esc(d.formas.find(f => f.id === c.formaId)?.nome || '')}${M.noSalario(d.formas.find(f => f.id === c.formaId)) ? ' (desconto no salário)' : ''}, ${r.pagas} de ${r.total} pagas${r.quitada ? '' : `, termina em ${mesAno(r.termina)}`}</span>
     ${economiaDe(c) > 0.004 ? `<span class="parc__eco">Economia com antecipações: ${brl(economiaDe(c))}</span>` : ''}
   </a></li>`;
 

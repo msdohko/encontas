@@ -107,11 +107,15 @@ export async function entrarComCodigo(u, codigoBruto) {
 // ── Leitura ──────────────────────────────────────────────────────────
 export const COLECOES = ['categorias', 'formas', 'fontes', 'entradas', 'recorrentes', 'compras', 'lancamentos'];
 
-export async function carregarCasa(casaId, hojeComp) {
+export async function carregarCasa(casaId, hojeComp, hojeISO) {
   const dados = modoDemo ? await demo() : await lerFirestore(casaId);
   // Garante os lançamentos das contas fixas/assinaturas até 12 meses à frente (ids fixos: nunca duplica)
   const ate = M.somarMesesComp(hojeComp, 12), criar = [];
   for (const r of dados.recorrentes) criar.push(...M.sincronizarRecorrente(r, dados.lancamentos, hojeComp, ate).criar);
+  // parcelas descontadas no salário que já venceram: baixa automática
+  if (hojeISO) for (const l of M.baixasNoSalario(dados.lancamentos, dados.formas, hojeISO, new Date().toISOString())) {
+    criar.push(l); dados.lancamentos[dados.lancamentos.findIndex(x => x.id === l.id)] = l;
+  }
   // salva em segundo plano: a tela abre sem esperar o servidor confirmar
   if (criar.length) aplicar(dados, criar.map(l => ({ set: 'lancamentos', dados: l }))).catch(e => console.error('lançamentos automáticos', e));
   return dados;
