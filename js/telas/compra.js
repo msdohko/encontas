@@ -37,19 +37,22 @@ export function render(ctx) {
   </div>
   <form class="detalhe__form" data-form="quitar" hidden>
     <p class="intro">Marque as parcelas que está pagando agora. Se o banco deu desconto, troque o valor de cada uma pelo valor que vai pagar.</p>
+    <label class="campo campo--check"><input type="checkbox" name="soTotal"><span>Sei só o total que paguei</span>
+      <small class="campo__ajuda">Digite o valor do boleto gerado pelo banco. O app divide o desconto pelos dias que cada parcela está sendo adiantada.</small></label>
     <fieldset class="campo"><legend>Parcelas</legend>
       <div class="escolha-parcelas">
         <button type="button" class="link-mais" data-marcar="todas">Marcar todas</button>
         <button type="button" class="link-mais" data-marcar="nenhuma">Desmarcar todas</button>
       </div>
       <ul class="parcelas-check">${(() => { const pend = r.parcelas.filter(l => l.status !== 'pago'); return pend.map((l, i) => `<li>
-        <label class="campo--check"><input type="checkbox" name="parc" value="${esc(l.id)}" data-valor="${l.valor}" ${pend.length <= 12 || i === 0 ? 'checked' : ''}>
+        <label class="campo--check"><input type="checkbox" name="parc" value="${esc(l.id)}" data-valor="${l.valor}" data-venc="${l.data}" ${pend.length <= 12 || i === 0 ? 'checked' : ''}>
         <span>Parcela ${l.origem.parcela}<small class="parcelas-check__sub">${mesAno(l.data)}, cheia ${brl(l.valor)}</small></span></label>
         <input class="parcelas-check__v" name="vp" data-id="${esc(l.id)}" inputmode="decimal" value="${valorParaCampo(l.valor)}" aria-label="Valor pago da parcela ${l.origem.parcela}">
         <small class="parcelas-check__eco" data-eco="${esc(l.id)}"></small></li>`).join(''); })()}</ul>
     </fieldset>
     <div class="lancar__linha lancar__linha--2">
-      <div class="campo"><label>Total a pagar</label><output class="total-antecipar" data-total></output></div>
+      <div class="campo"><label>Total a pagar</label><output class="total-antecipar" data-total></output>
+        <input name="totalPago" inputmode="decimal" placeholder="Valor do boleto" hidden aria-label="Total pago ao banco"></div>
       <div class="campo"><label for="q-data">Data do pagamento</label><input id="q-data" name="data" type="date" value="${ctx.hoje}"></div>
     </div>
     <fieldset class="campo"><legend>Quem pagou</legend><div class="chips">${chips('pagoPor', pessoas, eu)}</div></fieldset>
@@ -75,7 +78,18 @@ export function ligar(el, ctx) {
   if (fq) {
     const marcadas = () => [...fq.querySelectorAll('input[name=parc]:checked')];
     const campoValor = id => fq.querySelector(`input[name=vp][data-id="${id}"]`);
+    const distribuir = () => {
+      const ps = marcadas().map(ck => ({ id: ck.value, valor: Number(ck.dataset.valor), data: ck.dataset.venc }));
+      const t = lerValor(fq.totalPago.value);
+      if (!ps.length || !(t > 0)) return;
+      const vs = M.distribuirDesconto(ps, t, fq.data.value || ctx.hoje);
+      for (const [id, v] of Object.entries(vs)) campoValor(id).value = valorParaCampo(v);
+    };
     const previa = () => {
+      const soTotal = fq.soTotal.checked;
+      fq.totalPago.hidden = !soTotal; fq.querySelector('[data-total]').hidden = soTotal;
+      fq.querySelectorAll('input[name=vp]').forEach(i => { i.readOnly = soTotal; });
+      if (soTotal) distribuir();
       let cheio = 0, pago = 0;
       fq.querySelectorAll('input[name=parc]').forEach(ck => {
         const inp = campoValor(ck.value), eco = fq.querySelector(`[data-eco="${ck.value}"]`);
@@ -88,16 +102,18 @@ export function ligar(el, ctx) {
       const n = marcadas().length, q = fq.data.value ? nomeQ(M.competenciaDe(fq.data.value), M.quinzenaDe(fq.data.value)) : '';
       fq.querySelector('[data-total]').textContent = brl(pago);
       fq.querySelector('[data-previa]').innerHTML = !n ? 'Marque ao menos uma parcela.' :
+        (soTotal && !(lerValor(fq.totalPago.value) > 0) ? 'Digite o total do boleto. ' : '') +
         `${n} parcela${n > 1 ? 's' : ''} (valor cheio ${brl(cheio)}). ${cheio - pago > 0.004 ? `Economia de <strong>${brl(cheio - pago)}</strong>. ` : ''}Sai da <strong>${q}</strong> e libera os meses dessas parcelas.`;
     };
     fq.querySelectorAll('[data-marcar]').forEach(b => b.addEventListener('click', () => {
-      fq.querySelectorAll('input[name=parc]').forEach(c => { c.checked = b.dataset.marcar === 'todas'; }); previa();
+      fq.querySelectorAll('input[name=parc]').forEach(c => { c.checked = b.dataset.marcar === 'todas'; campoValor(c.value).value = valorParaCampo(Number(c.dataset.valor)); }); previa();
     }));
     fq.addEventListener('input', previa); fq.addEventListener('change', previa); previa();
     fq.addEventListener('submit', async e => {
       e.preventDefault();
       const ids = marcadas().map(i => i.value);
       if (!ids.length) return toast('Marque ao menos uma parcela.');
+      if (fq.soTotal.checked) { if (!(lerValor(fq.totalPago.value) > 0)) return toast('Digite o total que pagou.'); distribuir(); }
       const valores = Object.fromEntries(ids.map(id => [id, lerValor(campoValor(id).value)]));
       if (Object.values(valores).some(v => !(v > 0))) return toast('Confira o valor de cada parcela marcada.');
       const total = Object.values(valores).reduce((t, v) => t + v, 0);

@@ -128,5 +128,9 @@ const ant = M.anteciparCompra({ id: 'c3' }, fc, { data: '2026-12-20', pagoPor: '
   valores: { c3_9: 2477.23, c3_10: 2390.10, c3_11: 2301.55 } }, eu, 'x');
 ok(ant.map(l => l.valor).join() === '2477.23,2390.1,2301.55' && ant.every(l => l.competencia === '2026-12' && l.valorOriginal === 2477.23), 'antecipar com desconto diferente em cada parcela');
 
+const dd = M.distribuirDesconto(finC3.slice(8, 12), 9700, '2026-12-20');
+const vv = finC3.slice(8, 12).map(l => dd[l.id]);
+ok(Math.round(vv.reduce((a, b) => a + b, 0) * 100) === 970000 && vv[0] > vv[1] && vv[1] > vv[2] && vv[2] > vv[3], 'só o total: desconto maior nas parcelas mais distantes, soma exata');
+
 console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTudo certo');
 process.exit(falhas ? 1 : 0);

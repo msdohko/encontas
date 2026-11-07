@@ -409,3 +409,20 @@ export function faturasInformadas(valores, formas, desde) {
   }
   return out;
 }
+
+/**
+ * Divide o desconto de uma antecipação entre as parcelas pelos DIAS adiantados de cada uma
+ * (quanto mais longe o vencimento, maior o desconto), como o banco faz. Retorna { id: valorPago }.
+ */
+export function distribuirDesconto(parcelas, totalPago, dataPagamento) {
+  const cheio = parcelas.reduce((t, p) => t + cent(p.valor), 0), desconto = cheio - cent(totalPago);
+  const dias = p => Math.max(0, Math.round((new Date(p.data + 'T12:00:00') - new Date(dataPagamento + 'T12:00:00')) / 864e5));
+  let pesos = parcelas.map(dias), soma = pesos.reduce((a, b) => a + b, 0);
+  if (!soma) { pesos = parcelas.map(p => cent(p.valor)); soma = cheio; }
+  const out = {}; let usado = 0;
+  parcelas.forEach((p, i) => {
+    const d = i === parcelas.length - 1 ? desconto - usado : Math.round(desconto * pesos[i] / soma);
+    usado += d; out[p.id] = reais(cent(p.valor) - d);
+  });
+  return out;
+}
