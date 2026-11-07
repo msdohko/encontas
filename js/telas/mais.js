@@ -19,15 +19,11 @@ export function render(ctx) {
     <ul class="menu">${link('#/diaadia', 'Dia a dia', d.formas.some(M.ehBeneficio) ? `vale mercado: ${brl(d.formas.filter(M.ehBeneficio).reduce((s, f) => s + M.saldoBeneficio(f, d.lancamentos, comp).saldo, 0))} livre` : 'gastos à vista e vale mercado')}
       ${link('#/atividade', 'Atividade', ultima ? `última: ${esc(ultima.nome)}` : 'quem fez o quê')}</ul>
   </section>
-  ${!ctx.modoDemo && d.compras.some(c => c.importado) && d.casa.planilhaVersao !== '2026-11-07' ? `<section class="bloco bloco--importar">
-    <h2 class="bloco__titulo">Atualizar com a planilha de 07/11</h2>
-    <p class="intro">Coloca nas faturas os valores novos da planilha (nov/26 a set/27), encerra o Empréstimo Pan, que saiu da planilha, e marca as compras do cartão que você já lançou como "já incluídas" nesses meses, para não somarem duas vezes. O que já está pago continua pago.</p>
-    <button class="btn" data-acao="planilha-0711">Atualizar valores</button>
-  </section>` : ''}
-  ${!ctx.modoDemo && !d.casa.faturasCorrigidas && d.compras.some(c => c.id.startsWith('fatura-')) ? `<section class="bloco bloco--importar">
-    <h2 class="bloco__titulo">Corrigir as faturas dos cartões</h2>
-    <p class="intro">Os cartões passam a ter uma conta "Fatura" por mês com o valor da planilha (até set/2027). As compras detalhadas (celulares, Guitarra, Havan…) viram só o detalhe dentro da fatura e param de somar duas vezes. O que você já ajustou nas outras contas não muda.</p>
-    <button class="btn" data-acao="corrigir-faturas">Corrigir faturas</button>
+  ${!ctx.modoDemo && d.compras.some(c => c.importado) && !d.casa.recomecou ? `<section class="bloco bloco--importar">
+    <h2 class="bloco__titulo">Recomeçar com a planilha de 07/11</h2>
+    <p class="intro">Apaga tudo o que veio das planilhas e as compras de cartão lançadas até agora, e importa de novo só a planilha nova. Daqui em diante vale o que for lançado no app.</p>
+    <p class="intro"><strong>Ficam:</strong> cartões e formas (com dias de vencimento/fechamento), fontes de renda, salário confirmado, entradas previstas (13º, PLR…), assinaturas que você criou, compras fora do cartão (ex.: financiamento do C3, gastos em dinheiro/Pix) e o histórico de atividade. Pagamentos já marcados voltam marcados.</p>
+    <button class="btn" data-acao="recomecar">Recomeçar com a planilha nova</button>
   </section>` : ''}
   ${!ctx.modoDemo && !d.compras.some(c => c.importado) ? `<section class="bloco bloco--importar">
     <h2 class="bloco__titulo">Começar com a planilha</h2>
@@ -88,6 +84,16 @@ export function ligar(el, ctx) {
       const r = await A.aplicarPlanilha(ctx, P); ctx.render();
       toast(`Atualizado: ${r.faturas} faturas${r.encerradas.length ? `, ${r.encerradas.join(', ')} encerrado` : ''}`);
     } catch (err) { console.error(err); toast('Não foi possível atualizar: ' + err.message); b.disabled = false; b.textContent = 'Atualizar valores'; }
+  });
+  el.querySelector('[data-acao=recomecar]')?.addEventListener('click', async e => {
+    const b = e.currentTarget;
+    if (!b.dataset.certeza) { b.dataset.certeza = 1; b.textContent = 'Toque de novo para confirmar o recomeço'; return; }
+    b.disabled = true; b.textContent = 'Recomeçando… (pode levar alguns segundos)';
+    try {
+      const r = await A.recomecarComPlanilha(ctx);
+      await A.marcarCasa(ctx, { recomecou: '2026-11-07' });
+      ctx.render(); toast(`Pronto: dados refeitos a partir da planilha de 07/11${r.restaurados ? `, ${r.restaurados} pagamentos mantidos` : ''}`);
+    } catch (err) { console.error(err); toast('Não foi possível recomeçar: ' + err.message); b.disabled = false; b.textContent = 'Recomeçar com a planilha nova'; }
   });
   el.querySelector('[data-acao=sair]')?.addEventListener('click', () => ctx.store.sair());
   el.querySelector('[data-acao=convite]')?.addEventListener('click', async e => {

@@ -186,7 +186,9 @@ export async function importarPlanilha(ctx) {
   const hoje = ctx.hoje, compHoje = hoje.slice(0, 7), em = agora(), eu = quem(ctx);
   const formas = [...D.formas.map(({ confirmar, ...f }) => ({ ...f, ativo: true })),
     { id: 'dinheiro', nome: 'Dinheiro', tipo: 'dinheiro', diaVencimento: 1, limite: null, ativo: true }];
-  const porId = Object.fromEntries(formas.map(f => [f.id, f]));
+  // o que já existe na casa (ex.: dia de vencimento/fechamento ajustado) vale mais que o padrão da planilha
+  const existe = (col, id) => ctx.dados[col].some(x => x.id === id);
+  const porId = Object.fromEntries([...formas, ...ctx.dados.formas].map(f => [f.id, f]));
   const limpar = ({ confirmar, ...o }) => o;
   const compras = D.compras.map(c => ({ ...limpar(c), criadoPor: eu.uid, criadoPorNome: eu.nome, criadoEm: em, importado: true }));
   const lanc = compras.flatMap(c => M.gerarParcelas(c, porId[c.formaId]));
@@ -198,9 +200,9 @@ export async function importarPlanilha(ctx) {
     .map(l => { const a = D.ajustes.find(x => x.recorrenteId === l.origem.id && x.competencia === l.competencia); return a ? { ...l, valor: a.valor } : l; });
   const entradas = D.entradas.filter(e => e.fonteId === 'salario').map(e => ({ ...e, criadoPor: eu.uid, criadoPorNome: eu.nome, criadoEm: em }));
   const ops = [
-    ...formas.map(d => ({ set: 'formas', dados: d })),
-    ...D.fontes.map(d => ({ set: 'fontes', dados: d })),
-    ...entradas.map(d => ({ set: 'entradas', dados: d })),
+    ...formas.filter(d => !existe('formas', d.id)).map(d => ({ set: 'formas', dados: d })),
+    ...D.fontes.filter(d => !existe('fontes', d.id)).map(d => ({ set: 'fontes', dados: d })),
+    ...entradas.filter(d => !existe('entradas', d.id)).map(d => ({ set: 'entradas', dados: d })),
     ...recorrentes.map(d => ({ set: 'recorrentes', dados: d })),
     ...compras.map(d => ({ set: 'compras', dados: d })),
     ...[...lancs, ...lancRec, ...M.faturasInformadas(D.planilhaFaturas, formas, compHoje)].map(d => ({ set: 'lancamentos', dados: d })),
@@ -317,3 +319,39 @@ export async function excluirEntrada(ctx, id) {
   const e = ctx.dados.entradas.find(x => x.id === id);
   await aplicar(ctx.dados, [{ apagar: 'entradas', id }, atividade(ctx, 'excluiu', { colecao: 'entradas', id, descricao: e?.descricao || 'entrada', valor: e?.valor ?? null })]);
 }
+
+/**
+ * Recomeçar com a planilha mais recente: apaga tudo o que veio das planilhas e as compras de cartão lançadas
+ * (que se misturavam com os valores das faturas) e importa de novo. Mantém formas, fontes, entradas,
+ * assinaturas/contas criadas no app, compras fora do cartão (financiamentos, dia a dia) e o histórico.
+ * Pagamentos já marcados são reaplicados quando a mesma conta volta.
+ */
+export async function recomecarComPlanilha(ctx) {
+  const D = (await import('./demo-dados.js')).default, d = ctx.dados;
+  const formas = Object.fromEntries(d.formas.map(f => [f.id, f]));
+  const recImport = new Set(D.recorrentes.map(r => r.id));
+  const comprasFora = d.compras.filter(c => c.importado || c.id.startsWith('fatura-') || M.temFatura(formas[c.formaId]) || ['c3-ago', 'c3-out'].includes(c.id));
+  const idsCompras = new Set(comprasFora.map(c => c.id));
+  const lancFora = d.lancamentos.filter(l => M.ehFatura(l) || idsCompras.has(l.origem?.id) || recImport.has(l.origem?.id));
+  // guardar o que já foi pago para reaplicar
+  const pagos = Object.fromEntries(lancFora.filter(l => l.status === 'pago' && !M.ehFatura(l)).map(l => [l.id, l]));
+  const ops = [
+    ...comprasFora.map(c => ({ apagar: 'compras', id: c.id })),
+    ...lancFora.map(l => ({ apagar: 'lancamentos', id: l.id })),
+    ...d.recorrentes.filter(r => recImport.has(r.id)).map(r => ({ apagar: 'recorrentes', id: r.id })),
+    { casa: { planilhaVersao: null, faturasCorrigidas: true } },
+  ];
+  await aplicar(d, ops);
+  await importarPlanilha(ctx);
+  const restaurar = d.lancamentos.filter(l => pagos[l.id] && l.status !== 'pago').map(l => {
+    const p = pagos[l.id];
+    return { ...l, status: 'pago', pagoEm: p.pagoEm, pagoPor: p.pagoPor || null, valor: p.valor, data: p.data,
+      competencia: p.competencia, quinzena: p.quinzena, historico: [...(p.historico || []), ...(l.historico || [])] };
+  });
+  await aplicar(d, [...restaurar.map(l => ({ set: 'lancamentos', dados: l })),
+    atividade(ctx, 'alterou', { colecao: 'casa', id: 'recomecar', descricao: 'tudo a partir da planilha de 07/11 (recomeço)', valor: null },
+      { apagadas: comprasFora.length })]);
+  return { apagadas: comprasFora.length, restaurados: restaurar.length };
+}
+
+export const marcarCasa = (ctx, campos) => aplicar(ctx.dados, [{ casa: campos }]);
