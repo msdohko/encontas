@@ -14,7 +14,7 @@ function atividade(ctx, acao, alvo, extra = {}) {
 }
 
 // ── Lançar ───────────────────────────────────────────────────────────
-export async function lancarCompra(ctx, { nome, valorTotal, parcelas, formaId, categoriaId, data, pessoa, jaNaFatura }) {
+export async function lancarCompra(ctx, { nome, valorTotal, parcelas, formaId, categoriaId, data, pessoa, jaNaFatura, jaPagas = 0 }) {
   const forma = ctx.dados.formas.find(f => f.id === formaId), em = agora();
   // cartão: `data` é a data da compra; a 1ª parcela vai para a fatura certa pelo fechamento
   const cartao = M.temFatura(forma), primeiraData = cartao ? M.vencimentoDaCompra(forma, data) : data;
@@ -23,7 +23,9 @@ export async function lancarCompra(ctx, { nome, valorTotal, parcelas, formaId, c
   const naHora = !cartao && M.pagaNaHora(forma, parcelas, data, ctx.hoje);
   const lancs = M.gerarParcelas(compra, forma).map(l => M.comEvento(l, M.evento('lancou', quem(ctx), em)))
     .map(l => naHora ? { ...l, status: 'pago', pagoEm: data, pagoPor: pessoa || quem(ctx).nome, confirmado: true } : l)
-    .map(l => jaNaFatura ? { ...l, naBase: true } : l);
+    .map(l => jaNaFatura ? { ...l, naBase: true } : l)
+    // financiamento em andamento: as primeiras N ficam pagas nas próprias datas
+    .map(l => l.origem.parcela <= jaPagas ? { ...l, status: 'pago', pagoEm: l.data, pagoPor: pessoa || quem(ctx).nome, confirmado: true, pagaAntes: true } : l);
   await aplicar(ctx.dados, [{ set: 'compras', dados: compra }, ...lancs.map(l => ({ set: 'lancamentos', dados: l })),
     atividade(ctx, 'lancou', { colecao: 'compras', id: compra.id, descricao: nome, valor: valorTotal }, { parcelas })]);
   return lancs;

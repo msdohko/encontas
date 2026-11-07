@@ -37,9 +37,15 @@ export function render(ctx) {
     <div class="lancar__linha">
       <fieldset class="campo"><legend>Parcelas</legend>
         <div class="passo"><button type="button" class="icone-btn" data-passo="-1" aria-label="Menos parcelas">−</button>
-        <input name="parcelas" type="number" inputmode="numeric" min="1" max="48" value="1" aria-label="Número de parcelas">
+        <input name="parcelas" type="number" inputmode="numeric" min="1" max="120" value="1" aria-label="Número de parcelas">
         <button type="button" class="icone-btn" data-passo="1" aria-label="Mais parcelas">+</button></div></fieldset>
       <div class="campo"><label for="l-data" data-rot-data>Data</label><input id="l-data" name="data" type="date" value="${dataSugerida(formaPadrao, ctx.hoje)}" required></div>
+    </div>
+    <div class="lancar__extras" data-so-parcelado hidden>
+      <label class="campo campo--check"><input type="checkbox" name="porParcela"><span>O valor digitado é de cada parcela</span></label>
+      <div class="campo campo--linha"><label for="l-pagas">Já paguei as primeiras</label>
+        <input id="l-pagas" name="jaPagas" type="number" inputmode="numeric" min="0" value="0"><span>parcelas</span>
+        <small class="campo__ajuda">Para financiamentos já em andamento: essas ficam como pagas nas datas delas.</small></div>
     </div>
     <label class="campo campo--check" data-ja-fatura hidden><input type="checkbox" name="jaNaFatura">
       <span>Já está incluída no valor da fatura</span>
@@ -91,13 +97,16 @@ function ligarSaida(f, ctx) {
   let dataMexida = false;
   f.data.addEventListener('input', () => { dataMexida = true; });
   f.querySelectorAll('[data-passo]').forEach(b => b.addEventListener('click', () => {
-    f.parcelas.value = Math.min(48, Math.max(1, (Number(f.parcelas.value) || 1) + Number(b.dataset.passo))); previa();
+    f.parcelas.value = Math.min(120, Math.max(1, (Number(f.parcelas.value) || 1) + Number(b.dataset.passo))); previa();
   }));
   f.addEventListener('change', e => { if (e.target.name === 'formaId' && !dataMexida) f.data.value = dataSugerida(formaDe(), ctx.hoje); previa(); });
   f.addEventListener('input', previa);
 
   function previa() {
-    const v = lerValor(f.valor.value), n = Math.max(1, Number(f.parcelas.value) || 1), data = f.data.value;
+    const n = Math.max(1, Number(f.parcelas.value) || 1), data = f.data.value;
+    f.querySelector('[data-so-parcelado]').hidden = n < 2;
+    const v = lerValor(f.valor.value) * (n > 1 && f.porParcela.checked ? n : 1);
+    const pagas = n > 1 ? Math.min(n - 1, Math.max(0, Number(f.jaPagas.value) || 0)) : 0;
     const fx = formaDe();
     f.querySelector('[data-rot-data]').textContent = M.temFatura(fx) ? 'Data da compra' : PARCELA_NO_VENCIMENTO.includes(fx?.tipo) ? (n > 1 ? '1ª parcela vence em' : 'Vence em') : 'Data';
     const p = f.querySelector('.previa');
@@ -117,13 +126,16 @@ function ligarSaida(f, ctx) {
       ? (M.ehBeneficio(fz) ? `Sai do saldo do <strong>${esc(fz.nome)}</strong>, não das quinzenas.`
         : M.pagaNaHora(fz, 1, data, ctx.hoje) ? `Entra como <strong>pago</strong> na ${nomeQ(ps[0].competencia, ps[0].quinzena)}.`
         : `Sai da <strong>${nomeQ(ps[0].competencia, ps[0].quinzena)}</strong>.`)
-      : `<strong>${n}x de ${brl(ps[0].valor)}</strong>. A 1ª em ${dataCurta(ps[0].data)} (${nomeQ(ps[0].competencia, ps[0].quinzena)}), a última em ${dataCurta(ult.data)}/${ult.data.slice(0, 4)}.`;
+      : `<strong>${n}x de ${brl(ps[0].valor)}</strong> (total ${brl(v)}). A 1ª em ${dataCurta(ps[0].data)}/${ps[0].data.slice(2, 4)}, a última em ${dataCurta(ult.data)}/${ult.data.slice(0, 4)}.`
+        + (pagas ? ` <strong>${pagas} já pagas</strong>; a próxima em aberto é a ${pagas + 1}ª, em ${dataCurta(ps[pagas].data)}/${ps[pagas].data.slice(2, 4)}.` : '');
   }
   previa();
 
   f.addEventListener('submit', async e => {
     e.preventDefault();
-    const valor = lerValor(f.valor.value), nome = f.nome.value.trim(), parcelas = Math.max(1, Number(f.parcelas.value) || 1);
+    const nome = f.nome.value.trim(), parcelas = Math.max(1, Number(f.parcelas.value) || 1);
+    const valor = Math.round(lerValor(f.valor.value) * (parcelas > 1 && f.porParcela.checked ? parcelas : 1) * 100) / 100;
+    const jaPagas = parcelas > 1 ? Math.min(parcelas - 1, Math.max(0, Number(f.jaPagas.value) || 0)) : 0;
     if (!(valor > 0)) return erro(f, 'Digite o valor.'), f.valor.focus();
     if (!nome) return erro(f, 'Diga o que foi.'), f.nome.focus();
     if (!f.formaId.value) return erro(f, 'Escolha onde desconta.');
@@ -131,7 +143,7 @@ function ligarSaida(f, ctx) {
     try {
       const lancs = await A.lancarCompra(ctx, { nome, valorTotal: valor, parcelas, formaId: f.formaId.value,
         categoriaId: f.categoriaId.value || null, data: f.data.value, pessoa: f.pessoa.value || null,
-        jaNaFatura: M.temFatura(formaDe()) && f.jaNaFatura.checked });
+        jaNaFatura: M.temFatura(formaDe()) && f.jaNaFatura.checked, jaPagas });
       lembrar('ultimaForma', f.formaId.value);
       toast(parcelas > 1 ? `Lançado: ${nome}, ${parcelas}x` : `Lançado: ${nome}, ${brl(valor)}`,
         parcelas > 1 ? { rotulo: 'Ver parcelas', fn: () => { location.hash = `#/compra/${lancs[0].origem.id}`; } } : undefined);

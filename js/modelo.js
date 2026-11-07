@@ -63,7 +63,7 @@ export function gerarParcelas(compra, forma) {
     descricao: compra.parcelas > 1 ? `${compra.nome} (${i + 1}/${compra.parcelas})` : compra.nome,
     valor, formaId: compra.formaId, categoriaId: compra.categoriaId ?? null, pessoa: compra.pessoa ?? null,
     criadoPor: compra.criadoPor ?? null, origem: { tipo: 'compra', id: compra.id, parcela: i + 1, de: compra.parcelas },
-  }, somarMeses(compra.primeiraData, i, i === 0 ? undefined : forma?.diaVencimento)));
+  }, somarMeses(compra.primeiraData, i, i === 0 || !temFatura(forma) ? undefined : forma.diaVencimento)));
 }
 
 /** Meses em que uma conta fixa/assinatura cobra, de `de` até `ate` */
@@ -258,7 +258,7 @@ export function editarCompra(compra, lancamentos, mud, forma, quem, emISO) {
   const antigas = Object.fromEntries(ps.filter(l => l.status !== 'pago').map(l => [l.origem.parcela, l]));
   nums.forEach((k, i) => {
     const velha = antigas[k];
-    let data = somarMeses(novo.primeiraData, k - 1, k === 1 ? undefined : forma?.diaVencimento);
+    let data = somarMeses(novo.primeiraData, k - 1, k === 1 || !temFatura(forma) ? undefined : forma.diaVencimento);
     if (velha && foiAdiado(velha) && !refazer && novo.formaId === compra.formaId) data = velha.data;
     const base = velha || { id: `${compra.id}_${k}`, dataOriginal: data, status: 'pendente', pagoEm: null, historico: [] };
     salvar.push(comEvento({ ...base, id: `${compra.id}_${k}`, descricao: rotuloParcela(novo.nome, k, n), valor: refazer ? valores[i] : (velha?.valor ?? valores[i]),

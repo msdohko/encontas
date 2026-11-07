@@ -81,7 +81,7 @@ const ed2 = M.editarCompra(tv, pt, { parcelas: 8 }, { diaVencimento: 15 }, eu, '
 ok(ed2.apagar.join() === 'tv_9,tv_10' && ed2.salvar.filter(l => l.status !== 'pago').length === 5, 'mudar para 8x apaga as parcelas 9 e 10 e redistribui');
 let erro = ''; try { M.editarCompra(tv, pt, { parcelas: 2 }, null, eu, 'e'); } catch (e) { erro = e.message; }
 ok(erro.includes('3 parcelas pagas'), 'não deixa ter menos parcelas do que as já pagas');
-const ed3 = M.editarCompra(tv, pt, { nome: 'TV Sala', formaId: 'nub' }, { diaVencimento: 8 }, eu, 'e');
+const ed3 = M.editarCompra(tv, pt, { nome: 'TV Sala', formaId: 'nub' }, { tipo: 'cartao', diaVencimento: 8 }, eu, 'e');
 ok(ed3.salvar.find(l => l.id === 'tv_4').data === '2027-02-08' && ed3.salvar.find(l => l.id === 'tv_4').descricao === 'TV Sala (4/10)', 'trocar de cartão leva as pendentes para o vencimento do novo cartão');
 const an = M.anteciparCompra(tv, pt, { valorPago: 1300, data: '2026-12-20', pagoPor: 'Amanda' }, eu, 'a');
 ok(an.length === 7 && an.every(l => l.status === 'pago' && l.competencia === '2026-12' && l.quinzena === 2) && an.reduce((s, l) => s + M.cent(l.valor), 0) === 130000,
@@ -117,6 +117,9 @@ ok(M.doCaixa([psn], fm).find(l => l.id === 'fatura_cd_2026-11').valor === 50, 'a
 const st = { diaVencimento: 15 };
 ok(M.vencimentoDaCompra(st, '2026-11-06') === '2026-11-15' && M.vencimentoDaCompra(st, '2026-11-08') === '2026-12-15', 'sem fechamento: compra até 7 dias antes do vencimento entra no mês');
 ok(M.vencimentoDaCompra({ diaVencimento: 5, diaFechamento: 28 }, '2026-11-27') === '2026-12-05' && M.vencimentoDaCompra({ diaVencimento: 5, diaFechamento: 28 }, '2026-11-28') === '2027-01-05', 'fecha 28 e vence 5: compra no dia 28 vai para a fatura seguinte');
+
+const finC3 = M.gerarParcelas({ id: 'c3', nome: 'C3', valorTotal: 148633.80, parcelas: 60, formaId: 'bol', primeiraData: '2026-04-23' }, { tipo: 'boleto', diaVencimento: 15 });
+ok(finC3[8].data === '2026-12-23' && finC3[59].data === '2031-03-23' && finC3[0].valor === 2477.23, 'financiamento no boleto: todas no dia 23, como a 1ª parcela');
 
 console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTudo certo');
 process.exit(falhas ? 1 : 0);

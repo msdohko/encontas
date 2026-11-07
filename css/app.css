@@ -467,3 +467,8 @@ small { color: var(--tinta-2); font-size: .8125rem; }
 .parcelas-check input { width: 20px; height: 20px; accent-color: var(--pinho); }
 .parcelas-check span:first-of-type { flex: 1; } .parcelas-check small { margin-left: .35rem; }
 .parcelas-check__v { font-weight: 600; }
+.lancar__extras { display: grid; gap: .75rem; padding: .75rem; border-radius: var(--raio); background: var(--superficie-2); box-shadow: inset 0 0 0 1px var(--linha); }
+.lancar__extras[hidden] { display: none; }
+.campo--linha { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.campo--linha input { width: 5rem !important; text-align: center; }
+.campo--linha .campo__ajuda { flex-basis: 100%; }
