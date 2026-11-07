@@ -90,6 +90,9 @@ export const CADASTROS = {
       { n: 'tipo', r: 'Tipo', t: 'lista', obrig: true, op: TIPOS_FORMA },
       { n: 'diaVencimento', r: 'Dia de vencimento', t: 'dia', obrig: true, se: v => v.tipo !== 'beneficio', ajuda: 'No cartão, o dia em que a fatura vence.' },
       { n: 'saldoMensal', r: 'Valor que cai por mês', t: 'dinheiro', obrig: true, se: v => v.tipo === 'beneficio', ajuda: 'O que for pago com ele desconta daqui e não das quinzenas.' },
+      { n: 'diaCredito', r: 'Dia em que renova', t: 'dia', se: v => v.tipo === 'beneficio', padrao: 1 },
+      { n: 'ajusteDiaUtil', r: 'Se cair no fim de semana', t: 'opcoes', se: v => v.tipo === 'beneficio', padrao: 'antes',
+        op: [['antes', 'Renova na sexta antes'], ['depois', 'Renova na segunda depois'], ['nenhum', 'Renova no dia mesmo']] },
       { n: 'diaFechamento', r: 'Dia de fechamento da fatura', t: 'dia', se: v => v.tipo === 'cartao' || v.tipo === 'crediario',
         ajuda: 'Compras a partir desse dia vão para a fatura do mês seguinte. Em branco: 7 dias antes do vencimento.' },
       { n: 'limite', r: 'Limite', t: 'dinheiro', se: v => v.tipo === 'cartao' || v.tipo === 'crediario' },
@@ -101,7 +104,7 @@ export const CADASTROS = {
       return A.excluirSimples(ctx, 'formas', o.id);
     },
     linha: (ctx, f) => ({ nome: f.nome, sub: [TIPOS_FORMA.find(t => t[0] === f.tipo)?.[1], f.tipo === 'beneficio' ? null : `vence dia ${f.diaVencimento}`, f.diaFechamento ? `fecha dia ${f.diaFechamento}` : null, f.ativo === false ? 'inativa' : null].filter(Boolean).join(', '),
-      valor: f.tipo === 'beneficio' ? `${brl(f.saldoMensal || 0)}/mês` : f.limite ? `limite ${brl(f.limite)}` : '' }),
+      valor: f.tipo === 'beneficio' ? `${brl(f.saldoMensal || 0)}/mês, renova dia ${f.diaCredito || 1}` : f.limite ? `limite ${brl(f.limite)}` : '' }),
     lista: d => d.formas,
   },
 

@@ -380,11 +380,31 @@ export function doCaixa(lancamentos, formas) {
   return cart.size ? [...resto, ...faturas(lancamentos, formas).map(x => x.fatura)] : resto;
 }
 
-/** Saldo do benefício no mês: crédito mensal − gastos do mês com ele */
-export function saldoBeneficio(forma, lancamentos, comp) {
-  const gastos = lancamentos.filter(l => l.formaId === forma.id && l.data.slice(0, 7) === comp);
+// ── Renovação do benefício (vale mercado) ────────────────────────────
+const diaSemana = iso => new Date(iso + 'T12:00:00').getDay(); // 0 = domingo, 6 = sábado
+/** Dia em que o benefício renova no mês: dia fixo; caindo em sábado/domingo, volta para a sexta anterior */
+export function dataCredito(forma, comp) {
+  let d = dataNoMes(comp, forma.diaCredito || 1);
+  if (forma.ajusteDiaUtil !== 'nenhum') {
+    const passo = forma.ajusteDiaUtil === 'depois' ? 1 : -1;
+    while ([0, 6].includes(diaSemana(d))) d = new Date(new Date(d + 'T12:00:00').getTime() + passo * 864e5).toISOString().slice(0, 10);
+  }
+  return d;
+}
+/** Período do benefício: de uma renovação até a véspera da próxima. `ref`: data (período que a contém) ou mês (período que começa nele). */
+export function periodoBeneficio(forma, ref) {
+  let ini;
+  if (ref.length === 7) ini = dataCredito(forma, ref);
+  else { ini = dataCredito(forma, ref.slice(0, 7)); if (ini > ref) ini = dataCredito(forma, somarMesesComp(ref.slice(0, 7), -1)); }
+  const prox = dataCredito(forma, somarMesesComp(ini.slice(0, 7), 1));
+  return { inicio: ini, proxima: prox };
+}
+/** Saldo do benefício no período: crédito − gastos feitos entre a renovação e a próxima */
+export function saldoBeneficio(forma, lancamentos, ref) {
+  const { inicio, proxima } = periodoBeneficio(forma, ref);
+  const gastos = lancamentos.filter(l => l.formaId === forma.id && l.data >= inicio && l.data < proxima);
   const usado = gastos.reduce((s, l) => s + cent(l.valor), 0);
-  return { credito: forma.saldoMensal || 0, usado: reais(usado), saldo: reais(cent(forma.saldoMensal || 0) - usado), gastos };
+  return { credito: forma.saldoMensal || 0, usado: reais(usado), saldo: reais(cent(forma.saldoMensal || 0) - usado), gastos, inicio, proxima };
 }
 /** Gastos do dia a dia: compras à vista lançadas no app, pagas em dinheiro, Pix, débito ou vale */
 export function gastosDiaADia(compras, lancamentos, comp, formas = []) {

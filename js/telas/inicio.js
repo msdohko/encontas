@@ -30,6 +30,7 @@ export function paraConfirmar(ctx) {
   return [...entradas, ...contas];
 }
 
+const diaSem = iso => ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][new Date(iso + 'T12:00:00').getDay()];
 const sinal = v => (v < 0 ? 'negativo' : 'positivo');
 
 function metade(p, rotulo, fonte) {
@@ -89,8 +90,8 @@ export function render(ctx) {
       ${q1.temPrevisao || q2.temPrevisao ? '<p class="envelope__nota">* inclui salário previsto pela média dos últimos 3 meses</p>' : ''}
     </div>
     <div class="inicio-listas">
-      ${d.formas.filter(M.ehBeneficio).map(f => { const s = M.saldoBeneficio(f, d.lancamentos, ctx.comp);
-        return `<a class="vale-mini" href="#/diaadia"><span>${esc(f.nome)}</span><strong class="${s.saldo < 0 ? 'negativo' : ''}">${brl(s.saldo)} livre</strong><small>de ${brl(s.credito)}</small></a>`; }).join('')}
+      ${d.formas.filter(M.ehBeneficio).map(f => { const s = M.saldoBeneficio(f, d.lancamentos, ctx.hoje);
+        return `<a class="vale-mini" href="#/diaadia"><span>${esc(f.nome)}</span><strong class="${s.saldo < 0 ? 'negativo' : ''}">${brl(s.saldo)} livre</strong><small>de ${brl(s.credito)}, renova ${diaSem(s.proxima)} ${dataCurta(s.proxima)}</small></a>`; }).join('')}
       ${atrasados.length ? `<section class="bloco bloco--alerta"><h2 class="bloco__titulo">Atrasadas <span class="contador">${atrasados.length}</span></h2>
         <ul class="contas">${atrasados.map(item).join('')}</ul></section>` : ''}
       ${(() => { const prev = d.entradas.filter(e => e.prevista).sort((a, b) => a.data.localeCompare(b.data));

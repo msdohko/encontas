@@ -1,7 +1,7 @@
 // Dia a dia: saldo do vale mercado e quanto foi gasto por categoria e por pessoa (só acompanhamento, sem limite)
 import * as M from '../modelo.js';
 import * as A from '../acoes.js';
-import { brl, esc, ICONES, seletorMes, toast } from '../ui.js';
+import { brl, esc, ICONES, seletorMes, toast, dataCurta } from '../ui.js';
 import { linhaConta, ligarContas } from './conta.js';
 
 export function titulo() { return 'Dia a dia'; }
@@ -33,12 +33,12 @@ export function render(ctx) {
   return `<a class="voltar" href="#/mais">${ICONES.esq} Mais</a>
   ${seletorMes(comp)}
   ${vales.length ? vales.map(v => {
-    const s = M.saldoBeneficio(v, d.lancamentos, comp), pct = s.credito ? Math.min(100, (s.usado / s.credito) * 100) : 0;
+    const s = M.saldoBeneficio(v, d.lancamentos, comp === ctx.hoje.slice(0, 7) ? ctx.hoje : comp), pct = s.credito ? Math.min(100, (s.usado / s.credito) * 100) : 0;
     return `<section class="vale">
-      <div class="vale__topo"><span>${esc(v.nome)}</span><small>${brl(s.credito)} por mês</small></div>
+      <div class="vale__topo"><span>${esc(v.nome)}</span><small>${brl(s.credito)} de ${dataCurta(s.inicio)} a ${dataCurta(new Date(new Date(s.proxima + 'T12:00:00').getTime() - 864e5).toISOString().slice(0, 10))}</small></div>
       <p class="vale__saldo ${s.saldo < 0 ? 'negativo' : ''}"><span>${s.saldo < 0 ? 'Passou' : 'Sobra'}</span><strong>${brl(Math.abs(s.saldo))}</strong></p>
       <div class="barra barra--grossa ${s.saldo < 0 ? 'barra--estourou' : ''}" aria-hidden="true"><span style="width:${pct}%"></span></div>
-      <p class="vale__info">Usado ${brl(s.usado)} em ${s.gastos.length} compra${s.gastos.length === 1 ? '' : 's'}. Não entra na conta das quinzenas.</p>
+      <p class="vale__info">Renova em ${dataCurta(s.proxima)}. Usado ${brl(s.usado)} em ${s.gastos.length} compra${s.gastos.length === 1 ? '' : 's'}. Não entra na conta das quinzenas.</p>
       ${s.gastos.length ? `<details><summary>Ver compras</summary><ul class="contas">${s.gastos.sort((a, b) => b.data.localeCompare(a.data)).map(l => linhaConta(ctx, l)).join('')}</ul></details>` : ''}
     </section>`; }).join('')
   : `<section class="bloco bloco--importar"><h2 class="bloco__titulo">Vale mercado</h2>

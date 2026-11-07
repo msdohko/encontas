@@ -132,5 +132,10 @@ const dd = M.distribuirDesconto(finC3.slice(8, 12), 9700, '2026-12-20');
 const vv = finC3.slice(8, 12).map(l => dd[l.id]);
 ok(Math.round(vv.reduce((a, b) => a + b, 0) * 100) === 970000 && vv[0] > vv[1] && vv[1] > vv[2] && vv[2] > vv[3], 'só o total: desconto maior nas parcelas mais distantes, soma exata');
 
+const vm = { id: 'vm', tipo: 'beneficio', saldoMensal: 1700, diaCredito: 20, ajusteDiaUtil: 'antes' };
+ok(M.dataCredito(vm, '2026-11') === '2026-11-20' && M.dataCredito(vm, '2026-12') === '2026-12-18', 'vale renova dia 20; caindo no domingo (dez) vai para sexta 18');
+const pv = M.periodoBeneficio(vm, '2026-12-10');
+ok(pv.inicio === '2026-11-20' && pv.proxima === '2026-12-18', 'período do vale: de 20/11 até a véspera de 18/12');
+
 console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTudo certo');
 process.exit(falhas ? 1 : 0);
