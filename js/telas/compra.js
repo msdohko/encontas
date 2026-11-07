@@ -36,19 +36,20 @@ export function render(ctx) {
     <button type="button" class="btn btn--sec" data-editar>Editar compra</button>
   </div>
   <form class="detalhe__form" data-form="quitar" hidden>
-    <p class="intro">Escolha quais parcelas está pagando agora (todas ou só alguns meses). Se teve desconto, coloque o valor que pagou.</p>
+    <p class="intro">Marque as parcelas que está pagando agora. Se o banco deu desconto, troque o valor de cada uma pelo valor que vai pagar.</p>
     <fieldset class="campo"><legend>Parcelas</legend>
       <div class="escolha-parcelas">
-        <button type="button" class="link-mais" data-marcar="todas">Todas</button>
-        <button type="button" class="link-mais" data-marcar="ultimas">Últimas 3</button>
-        <button type="button" class="link-mais" data-marcar="nenhuma">Nenhuma</button>
+        <button type="button" class="link-mais" data-marcar="todas">Marcar todas</button>
+        <button type="button" class="link-mais" data-marcar="nenhuma">Desmarcar todas</button>
       </div>
-      <ul class="parcelas-check">${r.parcelas.filter(l => l.status !== 'pago').map(l => `<li><label class="campo--check">
-        <input type="checkbox" name="parc" value="${esc(l.id)}" data-valor="${l.valor}" checked>
-        <span>Parcela ${l.origem.parcela} <small>${mesAno(l.data)}</small></span><span class="parcelas-check__v">${brl(l.valor)}</span></label></li>`).join('')}</ul>
+      <ul class="parcelas-check">${(() => { const pend = r.parcelas.filter(l => l.status !== 'pago'); return pend.map((l, i) => `<li>
+        <label class="campo--check"><input type="checkbox" name="parc" value="${esc(l.id)}" data-valor="${l.valor}" ${pend.length <= 12 || i === 0 ? 'checked' : ''}>
+        <span>Parcela ${l.origem.parcela}<small class="parcelas-check__sub">${mesAno(l.data)}, cheia ${brl(l.valor)}</small></span></label>
+        <input class="parcelas-check__v" name="vp" data-id="${esc(l.id)}" inputmode="decimal" value="${valorParaCampo(l.valor)}" aria-label="Valor pago da parcela ${l.origem.parcela}">
+        <small class="parcelas-check__eco" data-eco="${esc(l.id)}"></small></li>`).join(''); })()}</ul>
     </fieldset>
     <div class="lancar__linha lancar__linha--2">
-      <div class="campo"><label for="q-valor">Valor pago</label><input id="q-valor" name="valor" inputmode="decimal" value="${valorParaCampo(r.falta)}"></div>
+      <div class="campo"><label>Total a pagar</label><output class="total-antecipar" data-total></output></div>
       <div class="campo"><label for="q-data">Data do pagamento</label><input id="q-data" name="data" type="date" value="${ctx.hoje}"></div>
     </div>
     <fieldset class="campo"><legend>Quem pagou</legend><div class="chips">${chips('pagoPor', pessoas, eu)}</div></fieldset>
@@ -70,32 +71,38 @@ export function ligar(el, ctx) {
   ligarContas(el, ctx);
   const r = M.resumoCompra(c, ctx.dados.lancamentos);
   const fq = el.querySelector('[data-form=quitar]');
-  el.querySelector('[data-mostrar]')?.addEventListener('click', () => { fq.hidden = !fq.hidden; if (!fq.hidden) fq.valor.focus(); });
+  el.querySelector('[data-mostrar]')?.addEventListener('click', () => { fq.hidden = !fq.hidden; });
   if (fq) {
     const marcadas = () => [...fq.querySelectorAll('input[name=parc]:checked')];
-    const somaMarcadas = () => marcadas().reduce((t, i) => t + Number(i.dataset.valor), 0);
-    let valorMexido = false;
-    fq.valor.addEventListener('input', () => { valorMexido = true; });
+    const campoValor = id => fq.querySelector(`input[name=vp][data-id="${id}"]`);
     const previa = () => {
-      if (!valorMexido) fq.valor.value = valorParaCampo(somaMarcadas());
-      const n = marcadas().length, v = lerValor(fq.valor.value), eco = somaMarcadas() - v;
-      const q = fq.data.value ? nomeQ(M.competenciaDe(fq.data.value), M.quinzenaDe(fq.data.value)) : '';
-      fq.querySelector('[data-previa]').innerHTML = !n ? 'Escolha ao menos uma parcela.' : !(v > 0) ? '' :
-        `${n} parcela${n > 1 ? 's' : ''}. ${eco > 0.004 ? `Economia de <strong>${brl(eco)}</strong>. ` : eco < -0.004 ? `Isso é ${brl(-eco)} a mais que as parcelas. ` : ''}Sai da <strong>${q}</strong> e libera os meses dessas parcelas.`;
+      let cheio = 0, pago = 0;
+      fq.querySelectorAll('input[name=parc]').forEach(ck => {
+        const inp = campoValor(ck.value), eco = fq.querySelector(`[data-eco="${ck.value}"]`);
+        inp.disabled = !ck.checked; inp.closest('li').classList.toggle('desmarcada', !ck.checked);
+        if (!ck.checked) { eco.textContent = ''; return; }
+        const v = lerValor(inp.value) || 0, full = Number(ck.dataset.valor);
+        cheio += full; pago += v;
+        eco.textContent = full - v > 0.004 ? `desconto ${brl(full - v)}` : '';
+      });
+      const n = marcadas().length, q = fq.data.value ? nomeQ(M.competenciaDe(fq.data.value), M.quinzenaDe(fq.data.value)) : '';
+      fq.querySelector('[data-total]').textContent = brl(pago);
+      fq.querySelector('[data-previa]').innerHTML = !n ? 'Marque ao menos uma parcela.' :
+        `${n} parcela${n > 1 ? 's' : ''} (valor cheio ${brl(cheio)}). ${cheio - pago > 0.004 ? `Economia de <strong>${brl(cheio - pago)}</strong>. ` : ''}Sai da <strong>${q}</strong> e libera os meses dessas parcelas.`;
     };
     fq.querySelectorAll('[data-marcar]').forEach(b => b.addEventListener('click', () => {
-      const cks = [...fq.querySelectorAll('input[name=parc]')];
-      cks.forEach((c, i) => { c.checked = b.dataset.marcar === 'todas' || (b.dataset.marcar === 'ultimas' && i >= cks.length - 3); });
-      valorMexido = false; previa();
+      fq.querySelectorAll('input[name=parc]').forEach(c => { c.checked = b.dataset.marcar === 'todas'; }); previa();
     }));
-    fq.addEventListener('input', previa); fq.addEventListener('change', e => { if (e.target.name === 'parc') valorMexido = false; previa(); }); previa();
+    fq.addEventListener('input', previa); fq.addEventListener('change', previa); previa();
     fq.addEventListener('submit', async e => {
       e.preventDefault();
-      const v = lerValor(fq.valor.value), ids = marcadas().map(i => i.value);
-      if (!ids.length) return toast('Escolha ao menos uma parcela.');
-      if (!(v > 0)) return toast('Digite o valor pago.');
+      const ids = marcadas().map(i => i.value);
+      if (!ids.length) return toast('Marque ao menos uma parcela.');
+      const valores = Object.fromEntries(ids.map(id => [id, lerValor(campoValor(id).value)]));
+      if (Object.values(valores).some(v => !(v > 0))) return toast('Confira o valor de cada parcela marcada.');
+      const total = Object.values(valores).reduce((t, v) => t + v, 0);
       fq.querySelector('button.btn').disabled = true;
-      const res = await A.anteciparCompra(ctx, c.id, { valorPago: v, data: fq.data.value, pagoPor: fq.pagoPor.value, ids });
+      const res = await A.anteciparCompra(ctx, c.id, { valorPago: total, data: fq.data.value, pagoPor: fq.pagoPor.value, ids, valores });
       ctx.render();
       toast(`${c.nome}: ${res.parcelas} parcela${res.parcelas > 1 ? 's' : ''} paga${res.parcelas > 1 ? 's' : ''}${res.economia > 0 ? `, economia de ${brl(res.economia)}` : ''}`);
     });

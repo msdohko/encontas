@@ -274,14 +274,16 @@ export function editarCompra(compra, lancamentos, mud, forma, quem, emISO) {
  * Quitar antes: paga TODAS as parcelas pendentes de uma vez, na data informada, pelo valor combinado
  * (com desconto). O dinheiro sai da quinzena do pagamento e as quinzenas futuras ficam livres.
  */
-export function anteciparCompra(compra, lancamentos, { valorPago, data, pagoPor, ids }, quem, emISO) {
+export function anteciparCompra(compra, lancamentos, { valorPago, data, pagoPor, ids, valores }, quem, emISO) {
+  // valores: { idDaParcela: valorPago } quando cada parcela teve um desconto diferente
   // ids: só as parcelas escolhidas (ex.: antecipar as de jan, fev e mar do carro); sem ids, todas as que faltam
   const pend = parcelasDa(compra.id, lancamentos).filter(l => l.status !== 'pago' && (!ids || ids.includes(l.id)));
   if (!pend.length) throw new Error('Essa compra já está quitada.');
   const totalPend = pend.reduce((s, l) => s + cent(l.valor), 0), alvo = cent(valorPago ?? reais(totalPend));
   let usado = 0;
   return pend.map((l, i) => {
-    const parte = i === pend.length - 1 ? alvo - usado : Math.round(alvo * cent(l.valor) / totalPend);
+    const parte = valores?.[l.id] != null ? cent(valores[l.id])
+      : i === pend.length - 1 ? alvo - usado : Math.round(alvo * cent(l.valor) / totalPend);
     usado += parte;
     return comEvento({ ...l, valorOriginal: l.valorOriginal ?? l.valor, valor: reais(parte), data, competencia: competenciaDe(data),
       quinzena: quinzenaDe(data), status: 'pago', pagoEm: data, pagoPor, confirmado: true },

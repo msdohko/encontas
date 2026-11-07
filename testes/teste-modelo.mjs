@@ -121,5 +121,10 @@ ok(M.vencimentoDaCompra({ diaVencimento: 5, diaFechamento: 28 }, '2026-11-27') =
 const finC3 = M.gerarParcelas({ id: 'c3', nome: 'C3', valorTotal: 148633.80, parcelas: 60, formaId: 'bol', primeiraData: '2026-04-23' }, { tipo: 'boleto', diaVencimento: 15 });
 ok(finC3[8].data === '2026-12-23' && finC3[59].data === '2031-03-23' && finC3[0].valor === 2477.23, 'financiamento no boleto: todas no dia 23, como a 1ª parcela');
 
+const fc = finC3.map((l, i) => i < 8 ? { ...l, status: 'pago' } : l);
+const ant = M.anteciparCompra({ id: 'c3' }, fc, { data: '2026-12-20', pagoPor: 'Eduardo', ids: ['c3_9', 'c3_10', 'c3_11'],
+  valores: { c3_9: 2477.23, c3_10: 2390.10, c3_11: 2301.55 } }, eu, 'x');
+ok(ant.map(l => l.valor).join() === '2477.23,2390.1,2301.55' && ant.every(l => l.competencia === '2026-12' && l.valorOriginal === 2477.23), 'antecipar com desconto diferente em cada parcela');
+
 console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTudo certo');
 process.exit(falhas ? 1 : 0);

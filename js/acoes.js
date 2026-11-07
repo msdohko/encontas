@@ -151,9 +151,9 @@ export async function editarCompra(ctx, compraId, mud) {
   return r.compra;
 }
 
-export async function anteciparCompra(ctx, compraId, { valorPago, data, pagoPor, ids }) {
+export async function anteciparCompra(ctx, compraId, { valorPago, data, pagoPor, ids, valores }) {
   const c = acharCompra(ctx, compraId);
-  const ls = M.anteciparCompra(c, ctx.dados.lancamentos, { valorPago, data, pagoPor: pagoPor || quem(ctx).nome, ids }, quem(ctx), agora());
+  const ls = M.anteciparCompra(c, ctx.dados.lancamentos, { valorPago, data, pagoPor: pagoPor || quem(ctx).nome, ids, valores }, quem(ctx), agora());
   const original = ls.reduce((s, l) => s + M.cent(l.valorOriginal), 0);
   await aplicar(ctx.dados, [...ls.map(l => ({ set: 'lancamentos', dados: l })),
     atividade(ctx, 'quitou', { colecao: 'compras', id: compraId, descricao: c.nome, valor: valorPago },
