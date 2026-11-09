@@ -17,7 +17,7 @@ import * as relatorios from './telas/relatorios.js';
 const raiz = document.getElementById('app');
 const ROTAS = {
   inicio:    { tela: inicio,    nome: 'Início',    icone: 'inicio' },
-  quinzenas: { tela: quinzenas, nome: 'Quinzenas', icone: 'quinzenas' },
+  quinzenas: { tela: quinzenas, nome: 'Contas', icone: 'quinzenas' },
   lancar:    { tela: lancar,    nome: 'Lançar',    icone: 'lancar', destaque: true },
   dividas:   { tela: dividas,   nome: 'Dívidas',   icone: 'dividas' },
   mais:      { tela: mais,      nome: 'Mais',      icone: 'mais' },
