@@ -1,5 +1,5 @@
 import * as M from '../modelo.js';
-import { brl, esc, ICONES } from '../ui.js';
+import { brl, esc, ICONES, lerValor, nomeMesCurto } from '../ui.js';
 import { mesAno } from './compra.js';
 
 export function render(ctx) {
@@ -40,5 +40,60 @@ export function render(ctx) {
     </li>`; }).join('')}</ul>` : ''}
 
   ${quitadas.length ? `<details class="canceladas"><summary>Quitadas e encerradas (${quitadas.length})</summary><ul class="parcs">${quitadas.map(itemCompra).join('')}</ul></details>` : ''}
-  <p class="nota">O plano de quitação (qual dívida atacar primeiro) chega na Etapa 9.</p>`;
+  ${planoHTML(ctx)}`;
+}
+
+// ── Plano de quitação ────────────────────────────────────────────────
+const mesAno2 = iso => `${nomeMesCurto(iso.slice(0, 7))}/${iso.slice(2, 4)}`;
+
+function planoHTML(ctx) {
+  const dv = M.dividasAtivas(ctx.dados.compras, ctx.dados.lancamentos);
+  if (!dv.length) return '';
+  const p = ctx.plano || { extra: 0, criterio: 'alivio' };
+  const meses = M.parcelasPorMes(dv, ctx.hoje.slice(0, 7), 12), max = Math.max(1, ...meses.map(m => m.valor));
+  return `<section class="bloco plano" data-plano>
+    <h2 class="bloco__titulo">Plano de quitação</h2>
+    <p class="intro">Recebeu um dinheiro extra (PLR, férias, 13º)? Veja qual dívida atacar primeiro e quanto sobra por mês depois.</p>
+    <form class="plano__form" novalidate>
+      <div class="campo"><label for="pl-extra">Dinheiro extra para quitar</label>
+        <input id="pl-extra" name="extra" inputmode="decimal" placeholder="Ex.: 3.000,00" value="${p.extra ? String(p.extra).replace('.', ',') : ''}"></div>
+      <fieldset class="campo"><legend>Atacar primeiro</legend><div class="chips">
+        <label class="chip"><input type="radio" name="criterio" value="alivio" ${p.criterio !== 'menor' ? 'checked' : ''}><span>As que terminam antes</span></label>
+        <label class="chip"><input type="radio" name="criterio" value="menor" ${p.criterio === 'menor' ? 'checked' : ''}><span>As de menor valor</span></label>
+      </div></fieldset>
+    </form>
+    <div data-plano-res>${planoResultado(dv, p)}</div>
+    <h3 class="bloco__titulo dividas__sub">Quanto vai em parcelas por mês</h3>
+    <div class="evol evol--uma" style="grid-template-columns:repeat(12,minmax(0,1fr))" role="img" aria-label="${meses.map(m => `${nomeMesCurto(m.comp)}: ${brl(m.valor)}`).join('; ')}">
+      ${meses.map(m => `<div class="evol__mes"><div class="evol__barras"><span class="evol__b evol__b--sai" style="height:${Math.max(m.valor > 0 ? 2 : 0, (m.valor / max) * 100)}%" title="${brl(m.valor)}"></span></div>
+        <span class="evol__rot">${nomeMesCurto(m.comp)}</span></div>`).join('')}
+    </div>
+    <p class="nota">De ${brl(meses[0].valor)} em ${nomeMesCurto(meses[0].comp)} para ${brl(meses.at(-1).valor)} em ${nomeMesCurto(meses.at(-1).comp)}/${meses.at(-1).comp.slice(2, 4)}, sem antecipar nada. Faturas que vieram da planilha sem as compras não entram aqui.</p>
+  </section>`;
+}
+
+function planoResultado(dv, { extra, criterio }) {
+  const r = M.planoQuitacao(dv, extra, criterio);
+  const linha = x => `<li class="plano__item ${x.acao ? 'plano__item--' + x.acao : ''}">
+    <a href="#/compra/${esc(x.compra.id)}"><span class="plano__nome">${esc(x.compra.nome)}</span>
+      <small>faltam ${x.restantes} de ${brl(x.parcela)}, termina ${mesAno2(x.termina)}</small></a>
+    <span class="plano__valor">${brl(x.falta)}</span>
+    ${x.acao === 'quita' ? `<p class="plano__acao">${x.restantes > 1 ? `Quita com ${brl(x.usa)}: libera <strong>${brl(x.parcela)}/mês</strong> a partir de ${mesAno2(x.proxima)}` : `Paga a última parcela (${brl(x.usa)}) com o extra: alivia só ${mesAno2(x.proxima)}`}</p>`
+      : x.acao === 'antecipa' ? `<p class="plano__acao">Antecipa ${x.n === 1 ? 'a última parcela' : `as ${x.n} últimas`} (${brl(x.usa)}): termina em <strong>${mesAno2(x.novoFim)}</strong> em vez de ${mesAno2(x.termina)}</p>` : ''}
+  </li>`;
+  const quitadas = r.passos.filter(x => x.acao === 'quita').length;
+  const resumo = extra > 0 ? `<p class="${r.alivioMensal > 0 ? 'aviso-bom' : 'nota'}">${r.alivioMensal > 0
+      ? `Com ${brl(extra)} vocês quitam ${quitadas} dívida${quitadas > 1 ? 's' : ''} e passam a ter <strong>${brl(r.alivioMensal)} a mais por mês</strong> enquanto elas durariam.`
+      : quitadas ? `${brl(extra)} paga ${quitadas === 1 ? 'a última parcela' : 'as últimas parcelas'} que já iam terminar: alivia só o mês delas.`
+      : `${brl(extra)} não quita nenhuma dívida inteira, mas encurta o prazo.`}${r.sobra > 0.004 ? ` Sobram ${brl(r.sobra)}.` : ''}
+      O banco costuma dar desconto ao antecipar, então deve sair mais barato que isso.</p>` : '';
+  return `${resumo}<ol class="plano__lista">${r.passos.map(linha).join('')}</ol>`;
+}
+
+export function ligar(el, ctx) {
+  const box = el.querySelector('[data-plano]'); if (!box) return;
+  const f = box.querySelector('form'), res = box.querySelector('[data-plano-res]');
+  const dv = M.dividasAtivas(ctx.dados.compras, ctx.dados.lancamentos);
+  const atualizar = () => { ctx.plano = { extra: lerValor(f.extra.value) || 0, criterio: f.criterio.value }; res.innerHTML = planoResultado(dv, ctx.plano); };
+  f.addEventListener('input', atualizar); f.addEventListener('change', e => { if (e.target.type === 'radio') atualizar(); }); f.addEventListener('submit', e => e.preventDefault());
 }

@@ -55,6 +55,7 @@ export function render(ctx) {
     <p class="previa" aria-live="polite"></p>
     <p class="form__erro" role="alert" hidden></p>
     <button class="btn btn--grande">Lançar gasto</button>
+    <a class="link-mais lancar__simular" href="#/simulador">Ainda vai comprar? Simule antes como fica nas quinzenas</a>
   </form>`;
 
   const fontes = d.fontes.filter(f => f.ativo !== false);
@@ -132,6 +133,15 @@ function ligarSaida(f, ctx) {
         : `Sai da <strong>${nomeQ(ps[0].competencia, ps[0].quinzena)}</strong>.`)
       : `<strong>${n}x de ${brl(ps[0].valor)}</strong> (total ${brl(v)}). A 1ª em ${dataCurta(ps[0].data)}/${ps[0].data.slice(2, 4)}, a última em ${dataCurta(ult.data)}/${ult.data.slice(0, 4)}.`
         + (pagas ? ` <strong>${pagas} já pagas</strong>; a próxima em aberto é a ${pagas + 1}ª, em ${dataCurta(ps[pagas].data)}/${ps[pagas].data.slice(2, 4)}.` : '');
+  }
+  // vindo do simulador: já preenche o que foi simulado
+  if (ctx.prefill) {
+    const p = ctx.prefill; ctx.prefill = null;
+    f.valor.value = String(p.valorTotal).replace('.', ','); f.nome.value = p.nome || '';
+    const r = f.querySelector(`[name=formaId][value="${p.formaId}"]`); if (r) r.checked = true;
+    f.parcelas.value = p.parcelas; f.data.value = p.data; dataMexida = true;
+    f.querySelector('[data-so-parcelado]').hidden = p.parcelas <= 1;
+    setTimeout(() => (p.nome ? f.querySelector('[name=categoriaId]') : f.nome)?.focus(), 50);
   }
   previa();
 

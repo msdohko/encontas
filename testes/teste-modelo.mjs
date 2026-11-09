@@ -152,5 +152,19 @@ ok(pq.gastos === 817.7 && pq.extras === 2477.23 && Math.abs(pq.saldo - 1563.9) <
 const pgx = M.pagar({ id: 'x', valor: 10, status: 'pendente' }, { pagoPor: 'Eduardo', data: '2026-11-09', pagoCom: 'PLR' }, eu, 'x');
 ok(pgx.pagoCom === 'PLR' && M.desfazerPagamento(pgx, eu, 'x').pagoCom === null, 'pagar com PLR guarda a origem; desfazer limpa');
 
+const dvs = [
+  { compra: { id: 'a', nome: 'Sofá' }, falta: 500, parcela: 500, restantes: 1, pendentes: [{ valor: 500, data: '2026-12-01', competencia: '2026-12' }], termina: '2026-12-01' },
+  { compra: { id: 'b', nome: 'Celular' }, falta: 1200, parcela: 200, restantes: 6,
+    pendentes: Array.from({ length: 6 }, (_, i) => ({ valor: 200, data: `2027-0${i + 1}-10`, competencia: `2027-0${i + 1}` })), termina: '2027-06-10' },
+  { compra: { id: 'c', nome: 'Carro' }, falta: 9000, parcela: 3000, restantes: 3,
+    pendentes: Array.from({ length: 3 }, (_, i) => ({ valor: 3000, data: `2027-0${i + 1}-23`, competencia: `2027-0${i + 1}` })), termina: '2027-03-23' }];
+const pl = M.planoQuitacao(dvs, 1300, 'alivio');
+ok(pl.passos[0].compra.id === 'a' && pl.passos[0].acao === 'quita' && pl.passos[1].compra.id === 'c' && !pl.passos[1].acao
+  && pl.passos[2].acao === 'antecipa' && pl.passos[2].n === 4 && pl.alivioMensal === 0 && pl.sobra === 0, 'plano: quita a que termina antes, antecipa as últimas da próxima que couber');
+const pm = M.planoQuitacao(dvs, 1700, 'menor');
+ok(pm.passos.map(x => x.acao).join() === 'quita,quita,' && pm.alivioMensal === 200, 'plano bola de neve: menor valor primeiro');
+const sim = M.parcelasSimuladas({ valorTotal: 1200, parcelas: 3, formaId: 'b1', data: '2026-11-10' }, { id: 'b1', tipo: 'boleto', diaVencimento: 10 });
+ok(sim.length === 3 && sim[0].valor === 400 && sim[2].competencia === '2027-01', 'simular 3x no boleto');
+
 console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTudo certo');
 process.exit(falhas ? 1 : 0);

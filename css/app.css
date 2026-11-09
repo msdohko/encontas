@@ -531,3 +531,30 @@ small { color: var(--tinta-2); font-size: .8125rem; }
 .maiores strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .barras__valor:has(.var) { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
 .barras__valor .var { margin: 0; }
+/* Simulador e plano de quitação */
+.aviso-ruim { margin: 0 0 1rem; padding: .75rem 1rem; border-radius: var(--raio); background: color-mix(in srgb, var(--neg) 12%, var(--superficie)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--neg) 35%, transparent); }
+.sim-resultado { margin-top: 1rem; }
+.sim-tabela { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: .9rem; }
+.sim-tabela th { text-align: left; font-size: .75rem; font-weight: 600; color: var(--tinta-2); padding: .4rem .5rem; border-bottom: 1px solid var(--linha); }
+.sim-tabela td { padding: .55rem .5rem; border-bottom: 1px solid var(--linha); }
+.sim-tabela th:not(:first-child), .sim-tabela td:not(:first-child) { text-align: right; }
+.sim-tabela .negativo { color: var(--neg); } .sim-tabela .positivo { color: var(--pos); }
+.sim-tabela--comparar tbody tr { cursor: pointer; } .sim-tabela--comparar tbody tr:hover { background: var(--superficie-2); }
+.sim-tabela tr.atual { background: var(--superficie-2); font-weight: 700; box-shadow: inset 3px 0 0 var(--pinho); }
+.lancar__simular { display: block; text-align: center; }
+.plano { margin-top: 1.5rem; }
+.plano__form { display: grid; gap: .75rem; margin-bottom: 1rem; }
+@media (min-width: 700px) { .plano__form { grid-template-columns: 240px 1fr; align-items: end; } }
+.plano__lista { list-style: none; margin: 0; padding: 0; }
+.plano__item { display: grid; grid-template-columns: 1fr auto; gap: .2rem 1rem; padding: .7rem 0; border-top: 1px solid var(--linha); }
+.plano__item:first-child { border-top: 0; }
+.plano__item a { display: flex; flex-direction: column; color: inherit; text-decoration: none; }
+.plano__nome { font-weight: 600; } .plano__item small { color: var(--tinta-2); font-size: .8125rem; }
+.plano__valor { font-weight: 600; font-variant-numeric: tabular-nums; }
+.plano__acao { grid-column: 1 / -1; margin: .2rem 0 0; font-size: .875rem; padding: .4rem .6rem; border-radius: var(--raio-s); background: color-mix(in srgb, var(--pago) 12%, transparent); }
+.plano__item--antecipa .plano__acao { background: color-mix(in srgb, var(--q1) 12%, transparent); }
+.evol--uma .evol__barras { height: 90px; } .evol--uma .evol__b { width: min(18px, 70%); }
+.sim-tabela td { white-space: nowrap; }
+@media (max-width: 420px) { .sim-tabela { font-size: .8125rem; } .sim-tabela td, .sim-tabela th { padding-left: .3rem; padding-right: .3rem; } }
+.evol__mes { min-width: 0; }
+@media (max-width: 480px) { .evol--uma { gap: .15rem; } .evol--uma .evol__rot { font-size: .6875rem; } }

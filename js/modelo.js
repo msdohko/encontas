@@ -493,3 +493,54 @@ export function somarPor(itens, chave) {
   for (const l of itens) { const k = chave(l) ?? '—'; g.set(k, (g.get(k) || 0) + cent(l.valor)); }
   return [...g.entries()].map(([k, v]) => [k, reais(v)]).sort((a, b) => b[1] - a[1]);
 }
+
+// ── Simulador de compra e plano de quitação (Etapa 9) ───────────────
+/** Parcelas de uma compra que ainda não existe (para simular o efeito nas quinzenas) */
+export function parcelasSimuladas({ valorTotal, parcelas, formaId, data, nome = 'Simulação' }, forma) {
+  const primeiraData = temFatura(forma) ? vencimentoDaCompra(forma, data) : data;
+  return gerarParcelas({ id: 'simulacao', nome, valorTotal, parcelas, formaId, primeiraData }, forma);
+}
+
+/** Compras parceladas com parcelas em aberto: o que dá para atacar com dinheiro extra */
+export function dividasAtivas(compras, lancamentos) {
+  return compras.map(c => {
+    const r = resumoCompra(c, lancamentos);
+    if (r.quitada || !r.total) return null;
+    const pend = r.parcelas.filter(l => l.status !== 'pago').sort((a, b) => a.data.localeCompare(b.data));
+    return { compra: c, falta: r.falta, parcela: pend[0].valor, restantes: pend.length, proxima: pend[0].data, termina: pend.at(-1).data, pendentes: pend };
+  }).filter(Boolean);
+}
+
+/**
+ * Plano de quitação com um dinheiro extra. Critérios:
+ *  - 'alivio': primeiro as que terminam mais rápido (menos parcelas faltando) → libera dinheiro do mês mais cedo
+ *  - 'menor':  primeiro as de menor saldo (bola de neve)
+ * Quita inteira quando o dinheiro dá; senão antecipa parcelas (as últimas: termina antes).
+ */
+export function planoQuitacao(dividas, extra = 0, criterio = 'alivio') {
+  const ordem = [...dividas].sort(criterio === 'menor'
+    ? (a, b) => a.falta - b.falta || a.restantes - b.restantes
+    : (a, b) => a.restantes - b.restantes || a.falta - b.falta);
+  let sobra = cent(extra), alivio = 0;
+  const passos = ordem.map(d => {
+    if (sobra <= 0) return { ...d, acao: null };
+    if (sobra >= cent(d.falta)) { sobra -= cent(d.falta); if (d.restantes > 1) alivio += cent(d.parcela); return { ...d, acao: 'quita', usa: d.falta }; }
+    const ultimas = [...d.pendentes].reverse();
+    let n = 0, usa = 0;
+    while (n < ultimas.length - 1 && usa + cent(ultimas[n].valor) <= sobra) usa += cent(ultimas[n++].valor);
+    if (!n) return { ...d, acao: null };
+    sobra -= usa;
+    return { ...d, acao: 'antecipa', n, usa: reais(usa), novoFim: d.pendentes[d.pendentes.length - 1 - n].data };
+  });
+  return { passos, sobra: reais(sobra), alivioMensal: reais(alivio) };
+}
+
+/** Quanto vai em parcelas de compras em cada mês (para ver quando o aperto alivia) */
+export function parcelasPorMes(dividas, deComp, meses = 12) {
+  const out = [];
+  for (let i = 0; i < meses; i++) {
+    const c = somarMesesComp(deComp, i);
+    out.push({ comp: c, valor: reais(dividas.reduce((t, d) => t + d.pendentes.filter(l => l.competencia === c).reduce((s, l) => s + cent(l.valor), 0), 0)) });
+  }
+  return out;
+}
