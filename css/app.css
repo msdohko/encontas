@@ -503,3 +503,6 @@ small { color: var(--tinta-2); font-size: .8125rem; }
 .so-total .campo--check { margin-top: .5rem; }
 .mais-parcelas { margin-top: .75rem; } .mais-parcelas summary { cursor: pointer; font-weight: 600; color: var(--pinho); padding: .5rem 0; } .mais-parcelas .contas { margin-top: .5rem; }
 .parc__eco { font-size: .8125rem; font-weight: 600; color: var(--pos); }
+.pagas-acoes { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .9rem; margin: .5rem 0 .75rem; }
+.pagas-acoes small { color: var(--tinta-2); font-size: .8125rem; flex: 1 1 220px; }
+[data-form=varias-origem] { margin-bottom: 1rem; }

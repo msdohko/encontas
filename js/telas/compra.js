@@ -88,14 +88,10 @@ export function render(ctx) {
   <h2 class="bloco__titulo compra__sub">Parcelas</h2>
   ${(() => {
     const linha = l => linhaConta(ctx, l, { titulo: `Parcela ${l.origem.parcela} de ${l.origem.de}` });
-    if (r.parcelas.length <= 12) return `<ul class="contas contas--tabela">${r.parcelas.map(linha).join('')}</ul>`;
-    const pagas = r.parcelas.filter(l => l.status === 'pago'), abertas = r.parcelas.filter(l => l.status !== 'pago').sort((a, b) => a.data.localeCompare(b.data));
-    return `<ul class="contas contas--tabela">${abertas.slice(0, 6).map(linha).join('')}</ul>
-      ${abertas.length > 6 ? `<details class="mais-parcelas"><summary>Ver as outras ${abertas.length - 6} parcelas em aberto</summary><ul class="contas contas--tabela">${abertas.slice(6).map(linha).join('')}</ul></details>` : ''}
-      ${pagas.length ? `<details class="mais-parcelas"><summary>Parcelas pagas (${pagas.length})</summary><ul class="contas contas--tabela">${pagas.map(linha).join('')}</ul></details>` : ''}`;
-  })()}
-  ${(() => { const pagas = r.parcelas.filter(l => l.status === 'pago'); return pagas.length > 1 ? `
-  <button type="button" class="link-mais" data-varias-origem>De onde saiu o dinheiro: mudar várias parcelas pagas de uma vez</button>
+    const pagas = r.parcelas.filter(l => l.status === 'pago');
+    const origem = pagas.length > 1 ? `
+  <div class="pagas-acoes"><button type="button" class="btn btn--sec btn--peq" data-varias-origem>Mudar de onde saiu o dinheiro</button>
+    <small>Marque várias parcelas pagas e diga se saíram da quinzena ou de abono, PLR, férias…</small></div>
   <form class="detalhe__form" data-form="varias-origem" hidden>
     <fieldset class="campo"><legend>Parcelas pagas</legend>
       <ul class="parcelas-check">${pagas.map(l => `<li><label class="campo--check"><input type="checkbox" name="po" value="${esc(l.id)}">
@@ -103,10 +99,17 @@ export function render(ctx) {
     </fieldset>
     ${campoExtra('PLR')}
     <button class="btn">Salvar nas parcelas marcadas</button>
-  </form>` : ''; })()}
+  </form>` : '';
+    if (r.parcelas.length <= 12) return `<ul class="contas contas--tabela">${r.parcelas.map(linha).join('')}</ul>${origem}`;
+    const abertas = r.parcelas.filter(l => l.status !== 'pago').sort((a, b) => a.data.localeCompare(b.data));
+    return `<ul class="contas contas--tabela">${abertas.slice(0, 6).map(linha).join('')}</ul>
+      ${abertas.length > 6 ? `<details class="mais-parcelas"><summary>Ver as outras ${abertas.length - 6} parcelas em aberto</summary><ul class="contas contas--tabela">${abertas.slice(6).map(linha).join('')}</ul></details>` : ''}
+      ${pagas.length ? `<details class="mais-parcelas"><summary>Parcelas pagas (${pagas.length})</summary>${origem}<ul class="contas contas--tabela">${pagas.map(linha).join('')}</ul></details>` : ''}`;
+  })()}
+
 
   <div class="compra__perigo">
-    ${r.quitada ? '' : `<button type="button" class="link-perigo" data-encerrar>Encerrar: apagar só as ${r.total - r.pagas} parcelas que faltam</button>`}
+    ${r.quitada ? '' : `<button type="button" class="link-perigo" data-encerrar>Encerrar: apagar ${r.total - r.pagas === 1 ? 'só a parcela que falta' : `só as ${r.total - r.pagas} parcelas que faltam`}</button>`}
     <button type="button" class="link-perigo" data-excluir>Excluir a compra inteira (lançada errado)</button>
   </div>`;
 }
