@@ -10,7 +10,7 @@ export const CONFIG = {
     appId: '1:1087849810507:web:1441c6499250e63e659bce',
   },
   // Notificações: Console do Firebase → Configurações do projeto → Cloud Messaging → Certificados push da Web → par de chaves (a chave pública)
-  vapidKey: 'COLE_A_CHAVE_PUBLICA_AQUI',
+  vapidKey: 'BFOOG9j9YSBYzrzekie3lHhZF7iqaqrtaUDZw6X9WXspfG960OwRbCPrHEY7V8ChRTSHpwx90zX7Emj6Zaqsr2o',
   nomeApp: 'encontas',
   slogan: 'por dentro das contas da casa',
 };
