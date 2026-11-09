@@ -1,7 +1,7 @@
 name: Aviso diário (notificações)
 on:
   schedule:
-    - cron: '0 10 * * *'   # 7h em Brasília
+    - cron: '7 * * * *'    # de hora em hora; cada aparelho recebe 1x por dia no horário que escolheu no app
   workflow_dispatch:        # botão "Run workflow" para testar na hora
 permissions:
   contents: read
@@ -18,3 +18,4 @@ jobs:
       - run: node scripts/notificar.mjs
         env:
           FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
+          FORCAR: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}

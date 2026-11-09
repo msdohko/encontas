@@ -35,7 +35,7 @@ export function render(ctx) {
   if (!N.suportado() && !N.iosForaDoApp()) estado = `<p class="aviso-ruim">Este navegador não recebe notificações. No celular, use o app pelo ícone da tela de início (iPhone com iOS 16.4 ou mais novo) ou o Chrome no Android.</p>`;
   else if (N.iosForaDoApp()) estado = `<p class="aviso-ruim">No iPhone, as notificações só funcionam com o encontas aberto pelo <strong>ícone da tela de início</strong>. Abra por lá e volte aqui.</p>`;
   else if (!N.configurado()) estado = `<p class="aviso-ruim">Falta configurar a chave de notificações do Firebase (Cloud Messaging) no app. O passo a passo está em COMO-CONFIGURAR.md.</p>`;
-  else if (meu && N.permissao() === 'granted') estado = `<p class="aviso-bom"><strong>Ativado neste aparelho.</strong> Todo dia por volta das 7h chega um resumo do que vence, do que está atrasado e do que precisa confirmar. Se não tiver nada, não chega nada.</p>`;
+  else if (meu && N.permissao() === 'granted') estado = `<p class="aviso-bom"><strong>Ativado neste aparelho.</strong> Todo dia, a partir das ${meu.horaAviso ?? 10}h, chega um resumo do que vence, do que está atrasado e do que precisa confirmar. Se não tiver nada, não chega nada.</p>`;
   else estado = `<p class="intro">Receba no celular, todo dia de manhã, um aviso do que vence, do que atrasou e do salário para confirmar.</p>
     <button class="btn" data-ativar>Ativar neste aparelho</button>`;
 
@@ -43,6 +43,9 @@ export function render(ctx) {
   <section class="bloco">${estado}
     ${meu ? `<fieldset class="campo"><legend>Avisar dos vencimentos</legend><div class="chips">${[[0, 'Só no dia'], [1, '1 dia antes'], [2, '2 dias antes'], [3, '3 dias antes']].map(([v, r]) =>
       `<label class="chip"><input type="radio" name="diasAntes" value="${v}" ${(meu.diasAntes ?? 1) === v ? 'checked' : ''}><span>${r}</span></label>`).join('')}</div></fieldset>
+      <div class="campo"><label for="av-hora">Horário do aviso</label>
+        <select id="av-hora" name="horaAviso">${Array.from({ length: 17 }, (_, i) => i + 6).map(h => `<option value="${h}" ${(meu.horaAviso ?? 10) === h ? 'selected' : ''}>${h}h</option>`).join('')}</select>
+        <small class="campo__ajuda">Pode atrasar alguns minutos (até perto de 1h) dependendo do GitHub.</small></div>
       <div class="detalhe__acoes"><button type="button" class="btn btn--sec" data-testar>Testar neste aparelho</button>
       <button type="button" class="btn btn--sec" data-desativar>Desativar neste aparelho</button></div>` : ''}
   </section>
@@ -61,7 +64,7 @@ export function ligar(el, ctx) {
     const b = ev.currentTarget; b.disabled = true; b.textContent = 'Ativando…';
     try {
       const token = await N.obterToken(), id = await N.idDoToken(token);
-      await salvar({ id, token, uid: ctx.usuario.uid, pessoa: ctx.usuario.nome.split(' ')[0], aparelho: N.nomeDoAparelho(), diasAntes: 1, ativo: true, criadoEm: new Date().toISOString() });
+      await salvar({ id, token, uid: ctx.usuario.uid, pessoa: ctx.usuario.nome.split(' ')[0], aparelho: N.nomeDoAparelho(), diasAntes: 1, horaAviso: 10, ativo: true, criadoEm: new Date().toISOString() });
       try { localStorage.setItem('dispositivoId', id); } catch {} idLocal = id;
       ctx.render(); toast('Notificações ativadas neste aparelho');
     } catch (e) { console.error(e); b.disabled = false; b.textContent = 'Ativar neste aparelho'; toast(e.message || 'Não deu para ativar.'); }
@@ -70,6 +73,9 @@ export function ligar(el, ctx) {
   el.querySelectorAll('[name=diasAntes]').forEach(r => r.addEventListener('change', async () => {
     await salvar({ ...meu, diasAntes: Number(r.value) }); ctx.render(); toast('Preferência salva');
   }));
+  el.querySelector('[name=horaAviso]')?.addEventListener('change', async e => {
+    await salvar({ ...meu, horaAviso: Number(e.target.value) }); ctx.render(); toast(`Aviso às ${e.target.value}h`);
+  });
   el.querySelector('[data-testar]')?.addEventListener('click', async () => {
     const reg = await navigator.serviceWorker.getRegistration('./');
     const p = M.textoNotificacao(M.alertas(ctx.dados, ctx.hoje, { diasAntes: meu?.diasAntes ?? 1 })) || { titulo: 'encontas', corpo: 'Notificações funcionando neste aparelho.' };

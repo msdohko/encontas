@@ -40,7 +40,7 @@ firestore.rules       segurança: cada casa só é vista pelos membros dela
 
 ## Notificações no celular (Etapa 10)
 
-O aviso diário (7h de Brasília) é enviado por um robô do GitHub Actions (`.github/workflows/notificar.yml` → `scripts/notificar.mjs`). Ele lê as casas no Firestore e manda, para cada aparelho ativado, um resumo do que vence, do que atrasou e do que precisa confirmar. Se não houver nada, não manda nada.
+O aviso diário (no horário que cada aparelho escolhe, padrão 10h) é enviado por um robô do GitHub Actions (`.github/workflows/notificar.yml` → `scripts/notificar.mjs`). Ele lê as casas no Firestore e manda, para cada aparelho ativado, um resumo do que vence, do que atrasou e do que precisa confirmar. Se não houver nada, não manda nada.
 
 1. **Chave pública (VAPID):** Console do Firebase → ⚙️ Configurações do projeto → aba **Cloud Messaging** → *Certificados push da Web* → **Gerar par de chaves**. Copie a chave (começa com `B…`) para `vapidKey` em `js/config.js`. Essa chave é pública.
 2. **Chave do robô (conta de serviço):** Configurações do projeto → aba **Contas de serviço** → **Gerar nova chave privada** (baixa um `.json`). **Não compartilhe esse arquivo.** No GitHub: repositório → Settings → Secrets and variables → Actions → **New repository secret**, nome `FIREBASE_SA`, valor = todo o conteúdo do `.json`. Depois apague o arquivo baixado.
