@@ -467,3 +467,29 @@ export function distribuirDesconto(parcelas, totalPago, dataPagamento) {
   });
   return out;
 }
+
+// ── Relatórios (Etapa 8) ─────────────────────────────────────────────
+/**
+ * Gastos do mês "abertos": o que sai do caixa, mas cada fatura de cartão é trocada pelas compras dela
+ * (para ver categoria de verdade); o que a fatura tem além das compras lançadas vira "sem detalhe".
+ */
+export function gastosDetalhados(lancamentos, formas, comp) {
+  const caixa = doCaixa(lancamentos, formas).filter(l => l.competencia === comp);
+  const fats = faturas(lancamentos, formas);
+  const out = [];
+  for (const l of caixa) {
+    if (!ehFatura(l)) { out.push(l); continue; }
+    const det = fats.find(x => x.fatura.id === l.id)?.detalhes || [];
+    out.push(...det);
+    const resto = cent(l.valor) - det.reduce((t, d) => t + cent(d.valor), 0);
+    if (resto > 0) out.push({ ...l, id: l.id + '_resto', descricao: `${l.descricao} (sem detalhe)`, valor: reais(resto), semDetalhe: true });
+  }
+  return out;
+}
+
+/** Soma por chave, do maior para o menor: [[chave, total], …] */
+export function somarPor(itens, chave) {
+  const g = new Map();
+  for (const l of itens) { const k = chave(l) ?? '—'; g.set(k, (g.get(k) || 0) + cent(l.valor)); }
+  return [...g.entries()].map(([k, v]) => [k, reais(v)]).sort((a, b) => b[1] - a[1]);
+}
