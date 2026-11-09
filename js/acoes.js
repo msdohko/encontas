@@ -86,6 +86,15 @@ export async function definirPagoCom(ctx, id, pagoCom) {
   return novo;
 }
 
+/** Várias contas pagas de uma vez (ex.: parcelas do carro pagas com PLR) */
+export async function definirPagoComVarias(ctx, ids, pagoCom) {
+  const ls = ids.map(id => achar(ctx, id)).filter(Boolean)
+    .map(l => M.comEvento({ ...l, pagoCom: pagoCom || null }, M.evento('origemDinheiro', quem(ctx), agora(), { pagoCom: pagoCom || null })));
+  await aplicar(ctx.dados, [...ls.map(l => ({ set: 'lancamentos', dados: l })),
+    ...ls.map(l => atividade(ctx, 'origemDinheiro', { colecao: 'lancamentos', id: l.id, descricao: l.descricao, valor: l.valor }, { pagoCom: pagoCom || null }))]);
+  return ls.length;
+}
+
 export async function adiar(ctx, id, { novaData, motivo, novoValor }) {
   const l = achar(ctx, id);
   let novo = M.adiar(l, novaData, motivo, quem(ctx), agora(), novoValor);

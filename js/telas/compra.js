@@ -94,6 +94,16 @@ export function render(ctx) {
       ${abertas.length > 6 ? `<details class="mais-parcelas"><summary>Ver as outras ${abertas.length - 6} parcelas em aberto</summary><ul class="contas contas--tabela">${abertas.slice(6).map(linha).join('')}</ul></details>` : ''}
       ${pagas.length ? `<details class="mais-parcelas"><summary>Parcelas pagas (${pagas.length})</summary><ul class="contas contas--tabela">${pagas.map(linha).join('')}</ul></details>` : ''}`;
   })()}
+  ${(() => { const pagas = r.parcelas.filter(l => l.status === 'pago'); return pagas.length > 1 ? `
+  <button type="button" class="link-mais" data-varias-origem>De onde saiu o dinheiro: mudar várias parcelas pagas de uma vez</button>
+  <form class="detalhe__form" data-form="varias-origem" hidden>
+    <fieldset class="campo"><legend>Parcelas pagas</legend>
+      <ul class="parcelas-check">${pagas.map(l => `<li><label class="campo--check"><input type="checkbox" name="po" value="${esc(l.id)}">
+        <span>${l.origem.parcela}ª parcela, ${mesAno(l.data)}<small class="parcelas-check__sub">${brl(l.valor)}${l.pagoCom ? `, com dinheiro de ${esc(l.pagoCom)}` : ', da quinzena'}</small></span></label></li>`).join('')}</ul>
+    </fieldset>
+    ${campoExtra('PLR')}
+    <button class="btn">Salvar nas parcelas marcadas</button>
+  </form>` : ''; })()}
 
   <div class="compra__perigo">
     ${r.quitada ? '' : `<button type="button" class="link-perigo" data-encerrar>Encerrar: apagar só as ${r.total - r.pagas} parcelas que faltam</button>`}
@@ -153,6 +163,20 @@ export function ligar(el, ctx) {
       const res = await A.anteciparCompra(ctx, c.id, { valorPago: total, data: fq.data.value, pagoPor: fq.pagoPor.value, ids, valores, pagoCom: lerExtra(fq) });
       ctx.render();
       toast(`${c.nome}: ${res.parcelas} parcela${res.parcelas > 1 ? 's' : ''} paga${res.parcelas > 1 ? 's' : ''}${res.economia > 0 ? `, economia de ${brl(res.economia)}` : ''}`);
+    });
+  }
+
+  const fv = el.querySelector('[data-form=varias-origem]');
+  if (fv) {
+    el.querySelector('[data-varias-origem]').addEventListener('click', () => { fv.hidden = !fv.hidden; });
+    ligarExtra(fv);
+    fv.addEventListener('submit', async e => {
+      e.preventDefault();
+      const ids = [...fv.querySelectorAll('input[name=po]:checked')].map(i => i.value);
+      if (!ids.length) return toast('Marque ao menos uma parcela.');
+      const pc = lerExtra(fv); fv.querySelector('.btn').disabled = true;
+      const n = await A.definirPagoComVarias(ctx, ids, pc);
+      ctx.render(); toast(`${n} parcela${n > 1 ? 's' : ''}: ${pc ? `dinheiro de ${pc}, fora da quinzena` : 'saiu da quinzena'}`);
     });
   }
 
