@@ -18,7 +18,7 @@ export function render(ctx) {
   const fonte = id => d.fontes.find(f => f.id === id)?.nome || 'Entrada';
   const aba = (val, rot) => `<button role="tab" class="abas__aba" data-q="${val}" aria-selected="${v === val}">${rot}</button>`;
   return `${seletorMes(ctx.comp)}
-  <div class="abas" role="tablist" aria-label="Período">${aba(1, '1ª quinzena')}${aba(2, '2ª quinzena')}${aba('mes', 'Mês inteiro')}</div>
+  <div class="abas" role="tablist" aria-label="Período">${aba('mes', 'Mês inteiro')}${aba(1, '1ª quinzena')}${aba(2, '2ª quinzena')}</div>
   <dl class="resumo-q q-${v}">
     <div><dt>Entra</dt><dd>${brl(resumo.receita)}</dd></div>
     <div><dt>Sai</dt><dd>${brl(resumo.gastos)}</dd></div>
