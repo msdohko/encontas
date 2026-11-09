@@ -19,6 +19,7 @@ export function render(ctx) {
     <ul class="menu">${link('#/simulador', 'Simulador de compra', 'cabe no orçamento? em quantas vezes?')}
       ${link('#/relatorios', 'Relatórios', 'para onde vai o dinheiro, mês a mês')}
       ${link('#/diaadia', 'Dia a dia', d.formas.some(M.ehBeneficio) ? `vale mercado: ${brl(d.formas.filter(M.ehBeneficio).reduce((s, f) => s + M.saldoBeneficio(f, d.lancamentos, ctx.hoje).saldo, 0))} livre` : 'gastos à vista e vale mercado')}
+      ${link('#/avisos', 'Notificações', 'aviso no celular do que vence')}
       ${link('#/atividade', 'Atividade', ultima ? `última: ${esc(ultima.nome)}` : 'quem fez o quê')}</ul>
   </section>
   ${!ctx.modoDemo && d.compras.some(c => c.importado) && !d.casa.recomecou ? `<section class="bloco bloco--importar">

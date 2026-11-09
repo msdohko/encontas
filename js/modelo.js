@@ -544,3 +544,71 @@ export function parcelasPorMes(dividas, deComp, meses = 12) {
   }
   return out;
 }
+
+// ── Alertas (Etapa 10): usados no sininho do app e nas notificações do celular ──
+const diasEntre = (de, ate) => Math.round((new Date(ate + 'T12:00:00') - new Date(de + 'T12:00:00')) / 864e5);
+const brlTxt = v => 'R$ ' + (Math.round(v * 100) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+const listaTxt = ls => ls.slice(0, 4).map(l => `${l.descricao} ${brlTxt(l.valor)}`).join(', ') + (ls.length > 4 ? ` e mais ${ls.length - 4}` : '');
+const MESES_TXT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+/**
+ * Lista de alertas do dia. Cada um: { id, nivel: 'ruim'|'atencao'|'info', titulo, texto, link, push }
+ * `push`: entra na notificação do celular (os demais só aparecem dentro do app).
+ * dados: { lancamentos, formas, fontes, entradas, recorrentes, casa }
+ */
+export function alertas(d, hoje, { diasAntes = 1 } = {}) {
+  const out = [], comp = hoje.slice(0, 7);
+  const abertas = doCaixa(d.lancamentos, d.formas).filter(l => l.status === 'pendente');
+  const atrasadas = abertas.filter(l => l.data < hoje).sort((a, b) => a.data.localeCompare(b.data));
+  if (atrasadas.length) out.push({ id: 'atrasadas', nivel: 'ruim', push: true, link: '#/inicio',
+    titulo: `${atrasadas.length} conta${atrasadas.length > 1 ? 's' : ''} atrasada${atrasadas.length > 1 ? 's' : ''}`, texto: listaTxt(atrasadas) });
+  for (let n = 0; n <= Math.max(0, diasAntes); n++) {
+    const vencem = abertas.filter(l => diasEntre(hoje, l.data) === n);
+    if (!vencem.length) continue;
+    const total = vencem.reduce((t, l) => t + cent(l.valor), 0);
+    out.push({ id: `vence-${n}`, nivel: n === 0 ? 'ruim' : 'atencao', push: true, link: '#/quinzenas',
+      titulo: `${n === 0 ? 'Vence hoje' : n === 1 ? 'Vence amanhã' : `Vence em ${n} dias`}: ${brlTxt(reais(total))}`, texto: listaTxt(vencem) });
+  }
+  const confirmar = abertas.filter(l => l.confirmado === false && l.data >= hoje && diasEntre(hoje, l.data) <= 5);
+  if (confirmar.length) out.push({ id: 'confirmar', nivel: 'atencao', push: true, link: '#/inicio',
+    titulo: 'Confira o valor que chegou', texto: `${confirmar.map(l => l.descricao).join(', ')} ainda ${confirmar.length > 1 ? 'estão' : 'está'} com valor estimado.` });
+
+  const receitas = receitasNoPeriodo(d.fontes || [], d.entradas || [], [somarMesesComp(comp, -1), comp, somarMesesComp(comp, 1)]);
+  const caiu = receitas.filter(r => r.aConfirmar && !r.semValor && r.data <= hoje && diasEntre(r.data, hoje) <= 10);
+  for (const r of caiu) {
+    const nome = r.descricao || (d.fontes || []).find(f => f.id === r.fonteId)?.nome || 'Entrada';
+    out.push({ id: `caiu-${r.id || r.fonteId + r.data}`, nivel: 'atencao', push: true, link: '#/inicio',
+      titulo: `${nome} caiu?`, texto: `Estava previsto para ${r.data.slice(8, 10)}/${r.data.slice(5, 7)}. Confirme o valor real no app.` });
+  }
+  const definir = (d.entradas || []).filter(e => e.prevista && e.valor == null && e.data >= hoje && diasEntre(hoje, e.data) <= 15);
+  for (const e of definir) out.push({ id: `definir-${e.id}`, nivel: 'info', push: false, link: '#/inicio',
+    titulo: `${e.descricao || 'Entrada prevista'}: valor a definir`, texto: `Prevista para ${e.data.slice(8, 10)}/${e.data.slice(5, 7)}. Coloque o valor quando souber.` });
+
+  for (const f of (d.formas || []).filter(ehBeneficio)) {
+    for (const c of [comp, somarMesesComp(comp, 1)]) {
+      const dc = dataCredito(f, c), n = diasEntre(hoje, dc);
+      if (n === 0 || n === 1) out.push({ id: `vale-${f.id}`, nivel: 'info', push: n === 0, link: '#/diaadia',
+        titulo: n === 0 ? `${f.nome} renovou hoje` : `${f.nome} renova amanhã`, texto: `Saldo novo de ${brlTxt(f.saldoMensal || 0)}.` });
+    }
+  }
+
+  // quinzena atual e a próxima no vermelho (só no app, para não repetir todo dia no celular)
+  const ini = d.casa?.inicioControle && d.casa.inicioControle < comp ? d.casa.inicioControle : comp;
+  const comps = []; for (let c = ini; c <= somarMesesComp(comp, 1); c = somarMesesComp(c, 1)) comps.push(c);
+  const painel = painelQuinzenas(receitasNoPeriodo(d.fontes || [], d.entradas || [], comps), doCaixa(d.lancamentos, d.formas), comps);
+  const qAtual = quinzenaDe(hoje), i = painel.findIndex(p => p.comp === comp && p.quinzena === qAtual);
+  for (const p of painel.slice(i, i + 2)) if (p && p.saldo < 0) out.push({ id: `quinzena-${p.comp}-${p.quinzena}`, nivel: 'atencao', push: false, link: '#/quinzenas',
+    titulo: `${p.quinzena}ª quinzena de ${MESES_TXT[Number(p.comp.slice(5, 7)) - 1]} no vermelho`, texto: `Faltam ${brlTxt(-p.saldo)} para fechar as contas dela.` });
+
+  const revisar = (d.recorrentes || []).filter(r => r.assinatura && assinaturaAtiva(r, comp) && precisaRevisar(r, hoje));
+  if (revisar.length) out.push({ id: 'assinaturas', nivel: 'info', push: false, link: '#/assinaturas',
+    titulo: `${revisar.length} assinatura${revisar.length > 1 ? 's' : ''} para revisar`, texto: 'Vocês ainda usam? Confirme ou cancele.' });
+  return out;
+}
+
+/** Texto da notificação do celular a partir dos alertas com push */
+export function textoNotificacao(lista) {
+  const p = lista.filter(a => a.push);
+  if (!p.length) return null;
+  return { titulo: p[0].titulo, corpo: [p[0].texto, ...p.slice(1).map(a => a.titulo)].join(' · '), link: p[0].link, total: p.length };
+}

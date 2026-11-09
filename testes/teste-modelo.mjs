@@ -166,5 +166,16 @@ ok(pm.passos.map(x => x.acao).join() === 'quita,quita,' && pm.alivioMensal === 2
 const sim = M.parcelasSimuladas({ valorTotal: 1200, parcelas: 3, formaId: 'b1', data: '2026-11-10' }, { id: 'b1', tipo: 'boleto', diaVencimento: 10 });
 ok(sim.length === 3 && sim[0].valor === 400 && sim[2].competencia === '2027-01', 'simular 3x no boleto');
 
+const dAl = { casa: {}, formas: [{ id: 'bol', tipo: 'boleto', diaVencimento: 10 }, { id: 'vm', tipo: 'beneficio', saldoMensal: 1700, diaCredito: 20, ajusteDiaUtil: 'antes', nome: 'Vale mercado' }],
+  fontes: [], entradas: [], recorrentes: [], lancamentos: [
+    { id: 'l1', descricao: 'Aluguel', valor: 955.75, data: '2026-11-10', competencia: '2026-11', quinzena: 1, status: 'pendente', formaId: 'bol' },
+    { id: 'l2', descricao: 'Luz', valor: 817.70, data: '2026-11-08', competencia: '2026-11', quinzena: 1, status: 'pendente', formaId: 'bol' },
+    { id: 'l3', descricao: 'Internet', valor: 160, data: '2026-11-15', competencia: '2026-11', quinzena: 2, status: 'pendente', formaId: 'bol' }] };
+const al = M.alertas(dAl, '2026-11-09', { diasAntes: 1 });
+ok(al.some(a => a.id === 'atrasadas' && a.texto.includes('Luz')) && al.some(a => a.id === 'vence-1' && a.texto.includes('Aluguel')) && !al.some(a => a.texto.includes('Internet')), 'alertas: atrasada e vence amanhã');
+ok(M.alertas(dAl, '2026-11-20', {}).some(a => a.id === 'vale-vm' && a.push), 'alerta: vale renovou hoje (20/11)');
+const tn = M.textoNotificacao(al);
+ok(tn && tn.titulo.startsWith('1 conta atrasada') && tn.corpo.includes('Vence amanhã'), 'texto da notificação junta os alertas');
+
 console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTudo certo');
 process.exit(falhas ? 1 : 0);

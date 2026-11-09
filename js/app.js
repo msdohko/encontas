@@ -14,6 +14,8 @@ import * as compra from './telas/compra.js';
 import * as diaadia from './telas/diaadia.js';
 import * as relatorios from './telas/relatorios.js';
 import * as simulador from './telas/simulador.js';
+import * as avisos from './telas/avisos.js';
+import * as M from './modelo.js';
 
 const raiz = document.getElementById('app');
 const ROTAS = {
@@ -31,6 +33,7 @@ const SUBROTAS = {
   compra:      { tela: compra,      nome: 'Compra',      pai: 'dividas' },
   diaadia:     { tela: diaadia,     nome: 'Dia a dia',   pai: 'mais' },
   relatorios:  { tela: relatorios,  nome: 'Relatórios',  pai: 'mais' },
+  avisos:      { tela: avisos,      nome: 'Notificações', pai: 'mais' },
   simulador:   { tela: simulador,   nome: 'Simulador de compra', pai: 'mais' },
 };
 
@@ -114,7 +117,8 @@ function desenhar() {
       </aside>
       <main class="conteudo" id="conteudo" tabindex="-1">
         ${S.modoDemo ? '<p class="faixa-demo">Modo demonstração com os dados da sua planilha. Nada é salvo.</p>' : ''}
-        <h1 class="titulo-tela">${nome}</h1>
+        <div class="topo-tela"><h1 class="titulo-tela">${nome}</h1>${(() => { const al = avisos.alertasDe(ctx), n = al.filter(a => a.nivel !== 'info').length;
+          return `<button type="button" class="icone-btn sino" data-sino aria-label="Alertas${al.length ? `: ${al.length}` : ''}">${ICONES.sino}${n ? `<span class="sino__n">${n}</span>` : ''}</button>`; })()}</div>
         ${tela.render(ctx)}
       </main>
       <nav class="inferior" aria-label="Navegação">${links('inferior')}</nav>
@@ -123,6 +127,7 @@ function desenhar() {
   conteudo.querySelectorAll('[data-mes]').forEach(b => b.addEventListener('click', () => {
     ctx.comp = mesSeguinte(ctx.comp, Number(b.dataset.mes)); desenhar();
   }));
+  conteudo.querySelector('[data-sino]')?.addEventListener('click', () => avisos.abrirAlertas(ctx));
   tela.ligar?.(conteudo, ctx);
 }
 

@@ -11,7 +11,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { CONFIG } from './config.js';
 
-const app = initializeApp(CONFIG.firebase);
+export const app = initializeApp(CONFIG.firebase);
 export const auth = getAuth(app);
 // Safari (Mac, iPhone, iPad e app na tela de início): sem cache em disco e com conexão simples (long polling),
 // porque o cache do Firestore e a conexão contínua travam no WebKit. Chrome/Edge/Firefox: cache local para abrir rápido.

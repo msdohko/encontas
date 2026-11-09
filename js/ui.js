@@ -55,6 +55,7 @@ ICONES.editar = svg('<path d="M4 20h4L19 9l-4-4L4 16z"/>');
 ICONES.dir2 = svg('<path d="m9 6 6 6-6 6"/>');
 ICONES.check = svg('<path d="m5 12.5 4.5 4.5L19 7.5"/>');
 ICONES.relogio = svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>');
+ICONES.sino = svg('<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>');
 
 // ── Valores em reais digitados ("1.234,56", "1234.56", "R$ 80") ──────
 export function lerValor(txt) {

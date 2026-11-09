@@ -105,10 +105,11 @@ export async function entrarComCodigo(u, codigoBruto) {
 }
 
 // ── Leitura ──────────────────────────────────────────────────────────
-export const COLECOES = ['categorias', 'formas', 'fontes', 'entradas', 'recorrentes', 'compras', 'lancamentos'];
+export const COLECOES = ['categorias', 'formas', 'fontes', 'entradas', 'recorrentes', 'compras', 'lancamentos', 'dispositivos'];
 
 export async function carregarCasa(casaId, hojeComp, hojeISO) {
   const dados = modoDemo ? await demo() : await lerFirestore(casaId);
+  dados.dispositivos ||= []; // aparelhos que recebem notificação
   // Garante os lançamentos das contas fixas/assinaturas até 12 meses à frente (ids fixos: nunca duplica)
   const ate = M.somarMesesComp(hojeComp, 12), criar = [];
   for (const r of dados.recorrentes) criar.push(...M.sincronizarRecorrente(r, dados.lancamentos, hojeComp, ate).criar);
