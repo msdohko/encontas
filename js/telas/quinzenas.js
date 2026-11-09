@@ -8,7 +8,7 @@ export function render(ctx) {
   const d = ctx.dados, v = ctx.quinzenaVista;
   const [q1, q2] = painelDoMes(ctx);
   const resumo = v === 1 ? q1 : v === 2 ? q2 : {
-    receita: q1.receita + q2.receita, gastos: q1.gastos + q2.gastos, aPagar: q1.aPagar + q2.aPagar, saldo: q1.saldo + q2.saldo };
+    receita: q1.receita + q2.receita, gastos: q1.gastos + q2.gastos, extras: q1.extras + q2.extras, aPagar: q1.aPagar + q2.aPagar, saldo: q1.saldo + q2.saldo };
   const formas = Object.fromEntries(d.formas.map(f => [f.id, f.nome]));
   const cats = Object.fromEntries(d.categorias.map(c => [c.id, c]));
   const itens = M.doCaixa(d.lancamentos, d.formas).filter(l => l.competencia === ctx.comp && (v === 'mes' || l.quinzena === v))
@@ -25,6 +25,7 @@ export function render(ctx) {
     <div><dt>A pagar</dt><dd>${brl(resumo.aPagar)}</dd></div>
     <div class="${resumo.saldo < 0 ? 'negativo' : 'positivo'}"><dt>${resumo.saldo < 0 ? 'Falta' : 'Sobra'}</dt><dd>${brl(Math.abs(resumo.saldo))}</dd></div>
   </dl>
+  ${resumo.extras > 0.004 ? `<p class="nota">${brl(resumo.extras)} pagos com dinheiro extra (abono, PLR, férias…) não entram nesta conta.</p>` : ''}
   ${entradas.length ? `<ul class="entradas" aria-label="Entradas">${entradas.map(r => linhaEntrada(ctx, r)).join('')}</ul>` : ''}
   ${itens.length ? `<ul class="contas contas--tabela">
     <li class="contas__cab" aria-hidden="true"><span>Vence</span><span>Conta</span><span>Categoria</span><span>Valor</span><span>Situação</span><span></span></li>

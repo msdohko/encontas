@@ -173,16 +173,20 @@ export function adiar(l, novaData, motivo, quem, emISO, novoValor) {
 }
 
 /** Pagar: guarda quem pagou, quando e quanto (com juros/desconto, o valor muda e o original fica guardado) */
-export function pagar(l, { pagoPor, data, valorPago }, quem, emISO) {
+export function pagar(l, { pagoPor, data, valorPago, pagoCom = null }, quem, emISO) {
   const mudou = valorPago != null && cent(valorPago) !== cent(l.valor);
-  return comEvento({ ...l, status: 'pago', pagoEm: data, pagoPor, confirmado: true,
+  return comEvento({ ...l, status: 'pago', pagoEm: data, pagoPor, pagoCom, confirmado: true,
     ...(mudou ? { valor: valorPago, valorOriginal: l.valorOriginal ?? l.valor } : {}) },
-  evento('pagou', quem, emISO, { pagoPor, data, ...(mudou ? { valorDe: l.valor, valorPara: valorPago } : {}) }));
+  evento('pagou', quem, emISO, { pagoPor, data, ...(pagoCom ? { pagoCom } : {}), ...(mudou ? { valorDe: l.valor, valorPara: valorPago } : {}) }));
 }
 export const desfazerPagamento = (l, quem, emISO) =>
-  comEvento({ ...l, status: 'pendente', pagoEm: null, pagoPor: null }, evento('desfez', quem, emISO, { pagoPor: l.pagoPor || null }));
+  comEvento({ ...l, status: 'pendente', pagoEm: null, pagoPor: null, pagoCom: null }, evento('desfez', quem, emISO, { pagoPor: l.pagoPor || null }));
 
 export const marcarPago = (l, dataISO) => ({ ...l, status: 'pago', pagoEm: dataISO }); // usado só nos dados de exemplo
+
+/** Pago com dinheiro de fora das quinzenas (abono, PLR, férias, reserva…): não pesa no saldo da quinzena */
+export const pagoComExtra = l => l.status === 'pago' && !!l.pagoCom;
+export const DE_ONDE_EXTRA = ['Abono', 'PLR', 'Férias', '13º', 'Reserva', 'Outro'];
 
 // ── Painel de quinzenas (saldo carregando de uma quinzena para a outra) ──
 export function painelQuinzenas(receitas, lancamentos, comps, saldoInicial = 0) {
@@ -190,12 +194,14 @@ export function painelQuinzenas(receitas, lancamentos, comps, saldoInicial = 0) 
   return comps.flatMap(comp => [1, 2].map(q => {
     const rs = receitas.filter(r => r.competencia === comp && r.quinzena === q);
     const receita = rs.reduce((s, r) => s + cent(r.valor), 0);
-    const itens = lancamentos.filter(l => l.competencia === comp && l.quinzena === q);
+    const doMes = lancamentos.filter(l => l.competencia === comp && l.quinzena === q);
+    const itens = doMes.filter(l => !pagoComExtra(l));
+    const extras = doMes.filter(pagoComExtra).reduce((s, l) => s + cent(l.valor), 0);
     const gastos = itens.reduce((s, l) => s + cent(l.valor), 0);
     const pago = itens.filter(l => l.status === 'pago').reduce((s, l) => s + cent(l.valor), 0);
     acumulado += receita - gastos;
     return { comp, quinzena: q, receita: reais(receita), temPrevisao: rs.some(r => r.previsto),
-      gastos: reais(gastos), aPagar: reais(gastos - pago), saldo: reais(receita - gastos), acumulado: reais(acumulado) };
+      gastos: reais(gastos), extras: reais(extras), aPagar: reais(gastos - pago), saldo: reais(receita - gastos), acumulado: reais(acumulado) };
   }));
 }
 
@@ -274,7 +280,7 @@ export function editarCompra(compra, lancamentos, mud, forma, quem, emISO) {
  * Quitar antes: paga TODAS as parcelas pendentes de uma vez, na data informada, pelo valor combinado
  * (com desconto). O dinheiro sai da quinzena do pagamento e as quinzenas futuras ficam livres.
  */
-export function anteciparCompra(compra, lancamentos, { valorPago, data, pagoPor, ids, valores }, quem, emISO) {
+export function anteciparCompra(compra, lancamentos, { valorPago, data, pagoPor, ids, valores, pagoCom = null }, quem, emISO) {
   // valores: { idDaParcela: valorPago } quando cada parcela teve um desconto diferente
   // ids: só as parcelas escolhidas (ex.: antecipar as de jan, fev e mar do carro); sem ids, todas as que faltam
   const pend = parcelasDa(compra.id, lancamentos).filter(l => l.status !== 'pago' && (!ids || ids.includes(l.id)));
@@ -286,8 +292,8 @@ export function anteciparCompra(compra, lancamentos, { valorPago, data, pagoPor,
       : i === pend.length - 1 ? alvo - usado : Math.round(alvo * cent(l.valor) / totalPend);
     usado += parte;
     return comEvento({ ...l, valorOriginal: l.valorOriginal ?? l.valor, valor: reais(parte), data, competencia: competenciaDe(data),
-      quinzena: quinzenaDe(data), status: 'pago', pagoEm: data, pagoPor, confirmado: true },
-    evento('antecipou', quem, emISO, { de: l.data, para: data, valorDe: l.valor, valorPara: reais(parte), pagoPor }));
+      quinzena: quinzenaDe(data), status: 'pago', pagoEm: data, pagoPor, pagoCom, confirmado: true },
+    evento('antecipou', quem, emISO, { de: l.data, para: data, valorDe: l.valor, valorPara: reais(parte), pagoPor, ...(pagoCom ? { pagoCom } : {}) }));
   });
 }
 

@@ -111,6 +111,8 @@ small { color: var(--tinta-2); font-size: .8125rem; }
 .envelope__sobra { margin: .9rem 0 0; display: flex; flex-direction: column; }
 .envelope__sobra span { font-size: .8125rem; font-weight: 600; }
 .envelope__sobra strong { font: 700 clamp(1.35rem, 5.4vw, 2rem) var(--f-titulo); letter-spacing: -0.02em; }
+.envelope__extra { display: block; margin-top: .25rem; font-size: .75rem; color: var(--tinta-2); }
+.extra-dinheiro [data-de-onde] { margin-top: .5rem; }
 /* o "picote" entre as metades */
 .envelope__corte { position: relative; background: repeating-linear-gradient(var(--linha) 0 6px, transparent 6px 12px) center / 2px 100% no-repeat; }
 .envelope__corte::before, .envelope__corte::after { content: ''; position: absolute; left: 50%; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; background: var(--fundo); box-shadow: inset 0 0 0 1px var(--linha); }

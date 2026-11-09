@@ -145,5 +145,12 @@ ok(M.doCaixa(emp, fs).map(l => l.id).join() === 'c' && M.paraDividas(emp, fs).le
 const bx = M.baixasNoSalario(emp, fs, '2026-12-01', 'x');
 ok(bx.length === 1 && bx[0].id === 'a' && bx[0].status === 'pago', 'parcela descontada no salário dá baixa sozinha no dia');
 
+const qx = [{ id: 'car', competencia: '2026-11', quinzena: 2, valor: 2477.23, status: 'pago', pagoCom: 'Abono' },
+  { id: 'luz', competencia: '2026-11', quinzena: 2, valor: 817.70, status: 'pendente' }];
+const pq = M.painelQuinzenas([{ competencia: '2026-11', quinzena: 2, valor: 2381.60 }], qx, ['2026-11'])[1];
+ok(pq.gastos === 817.7 && pq.extras === 2477.23 && Math.abs(pq.saldo - 1563.9) < 0.001, 'pago com dinheiro extra (abono) não pesa no Sai/Falta da quinzena');
+const pgx = M.pagar({ id: 'x', valor: 10, status: 'pendente' }, { pagoPor: 'Eduardo', data: '2026-11-09', pagoCom: 'PLR' }, eu, 'x');
+ok(pgx.pagoCom === 'PLR' && M.desfazerPagamento(pgx, eu, 'x').pagoCom === null, 'pagar com PLR guarda a origem; desfazer limpa');
+
 console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTudo certo');
 process.exit(falhas ? 1 : 0);

@@ -2,7 +2,7 @@
 import * as M from '../modelo.js';
 import * as A from '../acoes.js';
 import { brl, esc, ICONES, nomeMes, abrirFolha, formHTML, ligarForm, toast, lerValor, valorParaCampo, pessoasDaCasa, dataCurta } from '../ui.js';
-import { linhaConta, ligarContas } from './conta.js';
+import { linhaConta, ligarContas, campoExtra, ligarExtra, lerExtra } from './conta.js';
 
 const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 export const mesAno = iso => `${MES[Number(iso.slice(5, 7)) - 1]}/${iso.slice(2, 4)}`;
@@ -51,7 +51,7 @@ export function render(ctx) {
       const pago = ls.reduce((t, l) => t + l.valor, 0), cheio = ls.reduce((t, l) => t + (l.valorOriginal ?? l.valor), 0);
       return `<li><div class="antecipacoes__topo"><strong>${dataCurta(dt)}/${dt.slice(0, 4)}</strong><span>${brl(pago)}</span></div>
         <small>${ls.map(l => `${l.origem.parcela}ª (${mesAno(l.dataOriginal || l.data)}) ${brl(l.valor)}`).join(', ')}</small>
-        <small class="positivo">${ls.length} parcela${ls.length > 1 ? 's' : ''}, valor cheio ${brl(cheio)}, desconto de ${brl(cheio - pago)}${ls[0].pagoPor ? `, pago por ${esc(ls[0].pagoPor)}` : ''}</small></li>`; }).join('')}</ul></section>` : ''; })()}
+        <small class="positivo">${ls.length} parcela${ls.length > 1 ? 's' : ''}, valor cheio ${brl(cheio)}, desconto de ${brl(cheio - pago)}${ls[0].pagoPor ? `, pago por ${esc(ls[0].pagoPor)}` : ''}${ls[0].pagoCom ? `, com dinheiro de ${esc(ls[0].pagoCom)}` : ''}</small></li>`; }).join('')}</ul></section>` : ''; })()}
 
   ${r.quitada ? '' : `<div class="detalhe__acoes">
     <button type="button" class="btn" data-mostrar>Antecipar parcelas</button>
@@ -80,6 +80,7 @@ export function render(ctx) {
         <small class="campo__ajuda">Digite o valor do boleto. O app divide o desconto pelos dias que cada parcela está sendo adiantada (aproximado).</small></label>
     </details>
     <fieldset class="campo"><legend>Quem pagou</legend><div class="chips">${chips('pagoPor', pessoas, eu)}</div></fieldset>
+    ${campoExtra()}
     <p class="previa" data-previa></p>
     <button class="btn">Confirmar pagamento</button>
   </form>`}
@@ -139,7 +140,7 @@ export function ligar(el, ctx) {
     fq.querySelectorAll('[data-marcar]').forEach(b => b.addEventListener('click', () => {
       fq.querySelectorAll('input[name=parc]').forEach(c => { c.checked = b.dataset.marcar === 'todas'; campoValor(c.value).value = valorParaCampo(Number(c.dataset.valor)); }); previa();
     }));
-    fq.addEventListener('input', previa); fq.addEventListener('change', previa); previa();
+    fq.addEventListener('input', previa); fq.addEventListener('change', previa); previa(); ligarExtra(fq);
     fq.addEventListener('submit', async e => {
       e.preventDefault();
       const ids = marcadas().map(i => i.value);
@@ -149,7 +150,7 @@ export function ligar(el, ctx) {
       if (Object.values(valores).some(v => !(v > 0))) return toast('Confira o valor de cada parcela marcada.');
       const total = Object.values(valores).reduce((t, v) => t + v, 0);
       fq.querySelector('button.btn').disabled = true;
-      const res = await A.anteciparCompra(ctx, c.id, { valorPago: total, data: fq.data.value, pagoPor: fq.pagoPor.value, ids, valores });
+      const res = await A.anteciparCompra(ctx, c.id, { valorPago: total, data: fq.data.value, pagoPor: fq.pagoPor.value, ids, valores, pagoCom: lerExtra(fq) });
       ctx.render();
       toast(`${c.nome}: ${res.parcelas} parcela${res.parcelas > 1 ? 's' : ''} paga${res.parcelas > 1 ? 's' : ''}${res.economia > 0 ? `, economia de ${brl(res.economia)}` : ''}`);
     });

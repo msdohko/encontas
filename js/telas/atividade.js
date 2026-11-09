@@ -6,7 +6,7 @@ const VERBO = {
   lancou: 'lançou', pagou: 'pagou', desfez: 'desfez o pagamento de', adiou: 'adiou', renegociou: 'renegociou',
   confirmou: 'confirmou o valor de', entrada: 'registrou a entrada', 'confirmou-entrada': 'confirmou a entrada de',
   cadastrou: 'cadastrou', alterou: 'alterou', excluiu: 'excluiu', cancelou: 'cancelou a assinatura', revisou: 'confirmou que ainda usa',
-  'editou-compra': 'editou a compra', quitou: 'antecipou parcelas de', encerrou: 'encerrou as parcelas restantes de', importou: 'importou', previu: 'registrou a previsão de',
+  'editou-compra': 'editou a compra', quitou: 'antecipou parcelas de', encerrou: 'encerrou as parcelas restantes de', importou: 'importou', previu: 'registrou a previsão de', origemDinheiro: 'disse de onde saiu o dinheiro de',
 };
 
 function texto(a) {

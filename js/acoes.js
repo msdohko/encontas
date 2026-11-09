@@ -58,9 +58,9 @@ function detalhesDaFatura(ctx, fatura) {
   return M.faturas(ctx.dados.lancamentos, ctx.dados.formas).find(x => x.fatura.id === fatura.id)?.detalhes || [];
 }
 
-export async function pagar(ctx, id, { pagoPor, data, valorPago } = {}) {
+export async function pagar(ctx, id, { pagoPor, data, valorPago, pagoCom } = {}) {
   const l = achar(ctx, id);
-  let novo = M.pagar(l, { pagoPor: pagoPor || quem(ctx).nome, data: data || ctx.hoje, valorPago }, quem(ctx), agora());
+  let novo = M.pagar(l, { pagoPor: pagoPor || quem(ctx).nome, data: data || ctx.hoje, valorPago, pagoCom: pagoCom || null }, quem(ctx), agora());
   if (M.ehFatura(l)) novo = { ...novo, valorFinal: true, estimada: false };
   const extra = M.ehFatura(l) ? detalhesDaFatura(ctx, l).filter(x => x.status !== 'pago')
     .map(x => ({ set: 'lancamentos', dados: { ...x, status: 'pago', pagoEm: novo.pagoEm, pagoPor: novo.pagoPor, pagoNaFatura: true } })) : [];
@@ -75,6 +75,14 @@ export async function desfazerPagamento(ctx, id) {
     .map(x => ({ set: 'lancamentos', dados: { ...x, status: 'pendente', pagoEm: null, pagoPor: null, pagoNaFatura: false } })) : [];
   await aplicar(ctx.dados, [{ set: 'lancamentos', dados: novo }, ...extra,
     atividade(ctx, 'desfez', { colecao: 'lancamentos', id: novo.id, descricao: novo.descricao, valor: novo.valor })]);
+  return novo;
+}
+
+/** Conta já paga: diz de onde saiu o dinheiro (null = da quinzena) */
+export async function definirPagoCom(ctx, id, pagoCom) {
+  const l = achar(ctx, id);
+  const novo = M.comEvento({ ...l, pagoCom: pagoCom || null }, M.evento('origemDinheiro', quem(ctx), agora(), { pagoCom: pagoCom || null }));
+  await salvarLanc(ctx, novo, 'origemDinheiro', { pagoCom: pagoCom || null });
   return novo;
 }
 
@@ -151,9 +159,9 @@ export async function editarCompra(ctx, compraId, mud) {
   return r.compra;
 }
 
-export async function anteciparCompra(ctx, compraId, { valorPago, data, pagoPor, ids, valores }) {
+export async function anteciparCompra(ctx, compraId, { valorPago, data, pagoPor, ids, valores, pagoCom }) {
   const c = acharCompra(ctx, compraId);
-  const ls = M.anteciparCompra(c, ctx.dados.lancamentos, { valorPago, data, pagoPor: pagoPor || quem(ctx).nome, ids, valores }, quem(ctx), agora());
+  const ls = M.anteciparCompra(c, ctx.dados.lancamentos, { valorPago, data, pagoPor: pagoPor || quem(ctx).nome, ids, valores, pagoCom: pagoCom || null }, quem(ctx), agora());
   const original = ls.reduce((s, l) => s + M.cent(l.valorOriginal), 0);
   await aplicar(ctx.dados, [...ls.map(l => ({ set: 'lancamentos', dados: l })),
     atividade(ctx, 'quitou', { colecao: 'compras', id: compraId, descricao: c.nome, valor: valorPago },

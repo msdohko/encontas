@@ -42,6 +42,7 @@ function metade(p, rotulo, fonte) {
       <div><dt>A pagar</dt><dd>${brl(p.aPagar)}</dd></div>
     </dl>
     <p class="envelope__sobra ${sinal(p.saldo)}"><span>${p.saldo < 0 ? 'Falta' : 'Sobra'}</span><strong>${brl(Math.abs(p.saldo))}</strong></p>
+    ${p.extras > 0.004 ? `<small class="envelope__extra">+ ${brl(p.extras)} pagos com dinheiro extra</small>` : ''}
   </section>`;
 }
 
