@@ -573,3 +573,8 @@ small { color: var(--tinta-2); font-size: .8125rem; }
 .notif-previa span { display: flex; flex-direction: column; gap: .15rem; } .notif-previa small { color: var(--tinta-2); }
 .aparelho { display: flex; justify-content: space-between; align-items: center; padding: .65rem 0; border-top: 1px solid var(--linha); }
 .aparelho span { display: flex; flex-direction: column; } .aparelho small { color: var(--tinta-2); }
+/* Offline */
+.faixa-offline { margin: 0 0 1rem; padding: .7rem 1rem; border-radius: var(--raio); font-size: .875rem; background: color-mix(in srgb, var(--vence) 14%, var(--superficie)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vence) 40%, transparent); }
+.faixa-offline .link-mais { margin: .35rem 0 0; display: block; border: 0; background: none; padding: 0; color: var(--pinho); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
+.faixa-offline--envio { background: var(--superficie-2); box-shadow: inset 0 0 0 1px var(--linha); }
+.pendente-envio { color: var(--vence); font-weight: 600; }

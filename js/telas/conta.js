@@ -32,7 +32,7 @@ export function linhaConta(ctx, l, { comCategoria = false, titulo = null } = {})
     .filter(Boolean).join(', ');
   return `<li class="conta conta--${sit}" data-lanc="${esc(l.id)}" tabindex="0" aria-label="${esc(l.descricao)}, ${brl(l.valor)}, ${detalhe ? 'na fatura' : ROTULO_SITUACAO[sit]}. Abrir detalhes">
     <span class="conta__data">${dataCurta(l.data)}</span>
-    <span class="conta__nome">${esc(titulo || l.descricao)}<small>${esc(sub)}</small></span>
+    <span class="conta__nome">${esc(titulo || l.descricao)}<small>${esc(sub)}${ctx.pendentes?.has(l.id) ? ' <span class="pendente-envio" title="Ainda não foi enviado">● esperando internet</span>' : ''}</small></span>
     ${comCategoria ? `<span class="conta__cat"><i style="background:${esc(cat?.cor || '#999')}"></i>${esc(cat?.nome || 'Sem categoria')}</span>` : ''}
     <span class="conta__valor">${l.confirmado === false ? '≈ ' : ''}${brl(l.valor)}</span>
     <span class="selo selo--${sit}">${detalhe ? 'Na fatura' : ROTULO_SITUACAO[sit]}</span>

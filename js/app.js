@@ -39,7 +39,7 @@ const SUBROTAS = {
 
 // Estado compartilhado entre as telas
 const ctx = {
-  usuario: null, dados: null, hoje: hojeISO(),
+  usuario: null, dados: null, hoje: hojeISO(), pendentes: new Set(),
   comp: hojeISO().slice(0, 7), quinzenaVista: 'mes',
   modoDemo: S.modoDemo, store: S, aplicarTema,
   render: () => desenhar(),
@@ -73,6 +73,28 @@ function erroCarregar(e) {
   raiz.querySelector('[data-acao=sair]').onclick = () => S.sair();
 }
 
+// ── Offline leve ─────────────────────────────────────────────────────
+// Guarda a casca do app no aparelho (abre sem internet) e o mesmo service worker recebe as notificações
+if ('serviceWorker' in navigator && !S.modoDemo) navigator.serviceWorker.register('./firebase-messaging-sw.js', { scope: './' }).catch(e => console.warn('sw', e));
+// Ação recusada sem internet (ou outro erro não tratado): avisa em vez de falhar calado
+addEventListener('unhandledrejection', e => {
+  const msg = e.reason?.message; if (!msg) return;
+  if (e.reason instanceof S.SemInternet) { e.preventDefault(); document.querySelectorAll('dialog[open]').forEach(d => d.close()); toast(msg); desenhar(); }
+});
+addEventListener('encontas:offline', () => desenhar());
+async function voltouInternet() {
+  if (!ctx.dados || S.modoDemo) return;
+  try {
+    const n = await S.enviarFila(ctx.dados);
+    await ctx.recarregar();
+    if (!S.estado.offline) toast(n ? `Conectado: ${n} lançamento${n > 1 ? 's' : ''} enviado${n > 1 ? 's' : ''}` : 'Conectado: dados atualizados');
+  } catch (e) { console.warn('ainda sem conexão', e); }
+}
+addEventListener('online', voltouInternet);
+addEventListener('offline', () => { if (ctx.dados && !S.modoDemo) { S.estado.offline = true; S.estado.copiaEm ||= new Date().toISOString(); desenhar(); } });
+// ao voltar para o app (ex.: desbloqueou o celular), tenta sincronizar se estava sem internet
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.estado.offline && navigator.onLine) voltouInternet(); });
+
 S.observarUsuario(async u => {
   if (!u) { ctx.usuario = null; return mostrarEntrada(); }
   carregando('Carregando sua casa…');
@@ -96,8 +118,19 @@ function rotaAtual() {
   return ROTAS[r] || SUBROTAS[r] ? r : 'inicio';
 }
 
+function faixaOffline() {
+  if (S.modoDemo) return '';
+  const pend = ctx.pendentes.size;
+  if (!S.estado.offline) return pend ? `<p class="faixa-offline faixa-offline--envio">${pend} lançamento${pend > 1 ? 's' : ''} esperando para enviar…</p>` : '';
+  const em = S.estado.copiaEm ? new Date(S.estado.copiaEm) : null;
+  const quando = em ? `${String(em.getDate()).padStart(2, '0')}/${String(em.getMonth() + 1).padStart(2, '0')} às ${String(em.getHours()).padStart(2, '0')}:${String(em.getMinutes()).padStart(2, '0')}` : '';
+  return `<p class="faixa-offline"><strong>Sem internet.</strong> Mostrando os dados de ${quando}. Dá para lançar gastos; pagar e alterar contas volta quando conectar.${pend ? ` <span>${pend} esperando envio.</span>` : ''}
+    <button type="button" class="link-mais" data-reconectar>Tentar conectar</button></p>`;
+}
+
 function desenhar() {
   if (!ctx.usuario?.casaId || !ctx.dados) return;
+  ctx.pendentes = S.modoDemo ? new Set() : S.pendentesDeEnvio(ctx.dados.casa.id);
   const atual = rotaAtual(), rota = ROTAS[atual] || SUBROTAS[atual], { tela } = rota;
   const nome = tela.titulo?.(ctx) || rota.nome, ativo = rota.pai || atual;
   const links = (classe) => Object.entries(ROTAS).map(([id, r]) => `
@@ -117,6 +150,7 @@ function desenhar() {
       </aside>
       <main class="conteudo" id="conteudo" tabindex="-1">
         ${S.modoDemo ? '<p class="faixa-demo">Modo demonstração com os dados da sua planilha. Nada é salvo.</p>' : ''}
+        ${faixaOffline()}
         <div class="topo-tela"><h1 class="titulo-tela">${nome}</h1>${(() => { const al = avisos.alertasDe(ctx), n = al.filter(a => a.nivel !== 'info').length;
           return `<button type="button" class="icone-btn sino" data-sino aria-label="Alertas${al.length ? `: ${al.length}` : ''}">${ICONES.sino}${n ? `<span class="sino__n">${n}</span>` : ''}</button>`; })()}</div>
         ${tela.render(ctx)}
@@ -127,6 +161,7 @@ function desenhar() {
   conteudo.querySelectorAll('[data-mes]').forEach(b => b.addEventListener('click', () => {
     ctx.comp = mesSeguinte(ctx.comp, Number(b.dataset.mes)); desenhar();
   }));
+  conteudo.querySelector('[data-reconectar]')?.addEventListener('click', e => { e.currentTarget.textContent = 'Conectando…'; voltouInternet().then(() => desenhar()); });
   conteudo.querySelector('[data-sino]')?.addEventListener('click', () => avisos.abrirAlertas(ctx));
   tela.ligar?.(conteudo, ctx);
 }

@@ -58,11 +58,44 @@ export async function sair() {
   const f = await api(); await f.signOut(f.auth);
 }
 
+// ── Modo offline leve ────────────────────────────────────────────────
+// Guarda no aparelho a última cópia dos dados (para abrir sem internet) e uma fila de lançamentos NOVOS
+// feitos sem internet. Alterar o que já existe exige internet (evita um apagar a alteração do outro).
+export const estado = { offline: false, copiaEm: null };
+const ler = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+const gravar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { console.warn('sem espaço para guardar', k, e); return false; } };
+const kCopia = id => `encontas:copia:${id}`, kFila = id => `encontas:fila:${id}`, kPerfil = uid => `encontas:perfil:${uid}`;
+export const semInternet = () => estado.offline || !navigator.onLine;
+export const fila = casaId => ler(kFila(casaId)) || [];
+export const pendentesDeEnvio = casaId => new Set(fila(casaId).filter(o => o.set === 'lancamentos').map(o => o.dados.id));
+let tGuardar = null;
+export function guardarCopia(dados) {
+  if (modoDemo) return;
+  clearTimeout(tGuardar);
+  // atividade: só as 50 mais recentes na cópia, para caber no espaço do navegador
+  tGuardar = setTimeout(() => gravar(kCopia(dados.casa.id), { em: new Date().toISOString(), dados: { ...dados, atividades: (dados.atividades || []).slice(0, 50) } }), 300);
+}
+const prazo = (p, ms) => Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('sem resposta do servidor')), ms))]);
+
+/** Manda a fila de lançamentos feitos sem internet. Devolve quantos foram enviados. */
+export async function enviarFila(dados) {
+  const ops = fila(dados.casa.id);
+  if (!ops.length || modoDemo) return 0;
+  await prazo(gravarNoServidor(dados.casa.id, ops), 20000);
+  gravar(kFila(dados.casa.id), []);
+  return ops.filter(o => o.set === 'lancamentos').length || ops.length;
+}
+
 // ── Perfil e casa ────────────────────────────────────────────────────
 export async function perfil(u) {
   if (modoDemo) return { ...u, casaId: 'demo' };
-  const f = await api(), ref = f.doc(f.db, 'usuarios', u.uid), s = await f.getDoc(ref);
-  if (s.exists()) return { ...u, ...s.data() };
+  const salvo = ler(kPerfil(u.uid));
+  if (salvo?.casaId && !navigator.onLine) return { ...u, ...salvo };
+  let s;
+  try { const f = await api(); s = await prazo(f.getDoc(f.doc(f.db, 'usuarios', u.uid)), 12000); }
+  catch (e) { if (salvo?.casaId) return { ...u, ...salvo }; throw e; }
+  const f = await api(), ref = f.doc(f.db, 'usuarios', u.uid);
+  if (s.exists()) { const p = s.data(); gravar(kPerfil(u.uid), { casaId: p.casaId, nome: p.nome }); return { ...u, ...p }; }
   await f.setDoc(ref, { nome: u.nome, email: u.email, foto: u.foto, casaId: null, criadoEm: f.serverTimestamp() });
   return { ...u, casaId: null };
 }
@@ -108,7 +141,25 @@ export async function entrarComCodigo(u, codigoBruto) {
 export const COLECOES = ['categorias', 'formas', 'fontes', 'entradas', 'recorrentes', 'compras', 'lancamentos', 'dispositivos'];
 
 export async function carregarCasa(casaId, hojeComp, hojeISO) {
-  const dados = modoDemo ? await demo() : await lerFirestore(casaId);
+  let dados;
+  if (modoDemo) dados = await demo();
+  else {
+    const copia = ler(kCopia(casaId));
+    try {
+      if (!navigator.onLine && copia) throw new Error('sem internet');
+      dados = await prazo(lerFirestore(casaId), copia ? 12000 : 25000);
+      estado.offline = false; estado.copiaEm = null;
+    } catch (e) {
+      if (!copia) throw e;
+      dados = copia.dados; estado.offline = true; estado.copiaEm = copia.em;
+    }
+    // lançamentos feitos sem internet que ainda não subiram
+    const pend = fila(casaId);
+    if (pend.length) {
+      aplicarNaMemoria(dados, pend);
+      if (!estado.offline) enviarFila(dados).catch(e => console.warn('fila', e));
+    }
+  }
   dados.dispositivos ||= []; // aparelhos que recebem notificação
   // Garante os lançamentos das contas fixas/assinaturas até 12 meses à frente (ids fixos: nunca duplica)
   const ate = M.somarMesesComp(hojeComp, 12), criar = [];
@@ -117,8 +168,12 @@ export async function carregarCasa(casaId, hojeComp, hojeISO) {
   if (hojeISO) for (const l of M.baixasNoSalario(dados.lancamentos, dados.formas, hojeISO, new Date().toISOString())) {
     criar.push(l); dados.lancamentos[dados.lancamentos.findIndex(x => x.id === l.id)] = l;
   }
-  // salva em segundo plano: a tela abre sem esperar o servidor confirmar
-  if (criar.length) aplicar(dados, criar.map(l => ({ set: 'lancamentos', dados: l }))).catch(e => console.error('lançamentos automáticos', e));
+  // salva em segundo plano: a tela abre sem esperar o servidor confirmar (sem internet: só na memória; volta a ser criado depois)
+  if (criar.length) {
+    if (modoDemo || !estado.offline) aplicar(dados, criar.map(l => ({ set: 'lancamentos', dados: l }))).catch(e => console.error('lançamentos automáticos', e));
+    else aplicarNaMemoria(dados, criar.map(l => ({ set: 'lancamentos', dados: l })));
+  }
+  if (!estado.offline) guardarCopia(dados);
   return dados;
 }
 
@@ -146,7 +201,7 @@ const limpo = o => JSON.parse(JSON.stringify(o)); // Firestore não aceita undef
  *   { apagar: 'colecao', id }
  *   { casa: { campo: valor } }            atualiza o documento da casa
  */
-export async function aplicar(dados, ops) {
+function aplicarNaMemoria(dados, ops) {
   for (const op of ops) {
     if (op.set) {
       op.dados.id ??= novoId();
@@ -156,8 +211,36 @@ export async function aplicar(dados, ops) {
       dados[op.apagar] = dados[op.apagar].filter(x => x.id !== op.id);
     } else if (op.casa) Object.assign(dados.casa, op.casa);
   }
+}
+
+export class SemInternet extends Error {}
+
+export async function aplicar(dados, ops) {
+  for (const op of ops) if (op.set) op.dados.id ??= novoId();
+  const casaId = dados.casa.id;
+  if (!modoDemo && semInternet()) {
+    // sem internet: só deixa CRIAR coisas novas (ex.: lançar um gasto); mexer no que existe espera a conexão
+    const soNovos = ops.every(op => op.set && (op.set === 'atividades' || !dados[op.set].some(x => x.id === op.dados.id)
+      || fila(casaId).some(q => q.set === op.set && q.dados.id === op.dados.id)));
+    if (!soNovos) throw new SemInternet('Sem internet: dá para lançar gastos novos, mas para pagar ou alterar uma conta precisa estar conectado.');
+    aplicarNaMemoria(dados, ops);
+    gravar(kFila(casaId), [...fila(casaId).filter(q => !ops.some(o => o.set === q.set && o.dados.id === q.dados?.id)), ...JSON.parse(JSON.stringify(ops))]);
+    gravar(kCopia(casaId), { em: estado.copiaEm || new Date().toISOString(), dados });
+    return;
+  }
+  aplicarNaMemoria(dados, ops);
   if (modoDemo) return;
-  const f = await api(), casaId = dados.casa.id;
+  try { await prazo(gravarNoServidor(casaId, ops), 15000); }
+  catch (e) {
+    // a internet caiu no meio: o Firestore termina de enviar sozinho enquanto o app estiver aberto
+    if (/sem resposta/.test(e.message)) { estado.offline = true; estado.copiaEm ||= new Date().toISOString(); dispatchEvent(new Event('encontas:offline')); }
+    else throw e;
+  }
+  guardarCopia(dados);
+}
+
+async function gravarNoServidor(casaId, ops) {
+  const f = await api();
   for (let i = 0; i < ops.length; i += 400) {           // limite de 500 por lote
     const b = f.writeBatch(f.db);
     for (const op of ops.slice(i, i + 400)) {
