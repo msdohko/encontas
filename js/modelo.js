@@ -148,7 +148,8 @@ export function receitasNoPeriodo(fontes, entradas, comps) {
     const meses = new Set(comps.flatMap(c => [somarMesesComp(c, -1), c]));
     for (const ref of meses) {
       if ((f.inicio && ref < f.inicio) || (f.fim && ref > f.fim)) continue;
-      const data = dataNoMes(ref, f.dia), dest = destinoEntrada(data);
+      // o dinheiro cai no dia útil (ex.: dia 15 no domingo → sexta 13), mas continua pagando a quinzena do dia combinado
+      const nominal = dataNoMes(ref, f.dia), dest = destinoEntrada(nominal), data = diaUtil(nominal, f.ajusteDiaUtil || 'antes');
       if (!alvo.has(dest.competencia) || entradas.some(e => e.fonteId === f.id && e.ref === ref)) continue;
       out.push({ fonteId: f.id, ref, data, ...dest, valor: estimativaFonte(f, entradas, ref), pessoa: f.pessoa,
         previsto: f.tipo === 'variavel', aConfirmar: f.tipo === 'variavel' });
@@ -410,13 +411,15 @@ export function baixasNoSalario(lancamentos, formas, hojeISO, emISO) {
 // ── Renovação do benefício (vale mercado) ────────────────────────────
 const diaSemana = iso => new Date(iso + 'T12:00:00').getDay(); // 0 = domingo, 6 = sábado
 /** Dia em que o benefício renova no mês: dia fixo; caindo em sábado/domingo, volta para a sexta anterior */
-export function dataCredito(forma, comp) {
-  let d = dataNoMes(comp, forma.diaCredito || 1);
-  if (forma.ajusteDiaUtil !== 'nenhum') {
-    const passo = forma.ajusteDiaUtil === 'depois' ? 1 : -1;
-    while ([0, 6].includes(diaSemana(d))) d = new Date(new Date(d + 'T12:00:00').getTime() + passo * 864e5).toISOString().slice(0, 10);
-  }
+/** Fim de semana: 'antes' = sexta anterior, 'depois' = segunda seguinte, 'nenhum' = no dia mesmo */
+export function diaUtil(d, modo = 'antes') {
+  if (modo === 'nenhum') return d;
+  const passo = modo === 'depois' ? 1 : -1;
+  while ([0, 6].includes(diaSemana(d))) d = new Date(new Date(d + 'T12:00:00').getTime() + passo * 864e5).toISOString().slice(0, 10);
   return d;
+}
+export function dataCredito(forma, comp) {
+  return diaUtil(dataNoMes(comp, forma.diaCredito || 1), forma.ajusteDiaUtil || 'antes');
 }
 /** Período do benefício: de uma renovação até a véspera da próxima. `ref`: data (período que a contém) ou mês (período que começa nele). */
 export function periodoBeneficio(forma, ref) {

@@ -34,7 +34,7 @@ export async function lancarCompra(ctx, { nome, valorTotal, parcelas, formaId, c
 export async function lancarEntrada(ctx, { fonteId, valor, data, descricao, ref }) {
   const fonte = ctx.dados.fontes.find(f => f.id === fonteId);
   const e = { id: ref ? `${fonteId}_${ref}` : novoId(), fonteId, valor, data, ref: ref ?? null, descricao: descricao || null,
-    pessoa: fonte?.pessoa ?? null, ...M.destinoEntrada(data), criadoPor: ctx.usuario.uid, criadoPorNome: quem(ctx).nome, criadoEm: agora() };
+    pessoa: fonte?.pessoa ?? null, ...M.destinoEntrada(ref && fonte?.dia ? M.dataNoMes(ref, fonte.dia) : data), criadoPor: ctx.usuario.uid, criadoPorNome: quem(ctx).nome, criadoEm: agora() };
   await aplicar(ctx.dados, [{ set: 'entradas', dados: e },
     atividade(ctx, ref ? 'confirmou-entrada' : 'entrada', { colecao: 'entradas', id: e.id, descricao: descricao || fonte?.nome, valor })]);
   return e;

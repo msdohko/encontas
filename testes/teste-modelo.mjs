@@ -181,5 +181,8 @@ const valeR = { id: 'vale', tipo: 'fixa', valor: 2601.60, dia: 15, inicio: '2026
 const rv = M.receitasNoPeriodo([valeR], [], ['2026-10', '2026-11']);
 ok(rv.find(r => r.competencia === '2026-10').valor === 2381.60 && rv.find(r => r.competencia === '2026-11').valor === 2601.60, 'reajuste do vale: outubro antigo, novembro novo');
 
+const rv2 = M.receitasNoPeriodo([{ ...valeR }], [], ['2026-11']).find(r => r.ref === '2026-11');
+ok(rv2.data === '2026-11-13' && rv2.quinzena === 2, 'vale do dia 15 (domingo) cai sexta 13, mas segue na 2ª quinzena');
+
 console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTudo certo');
 process.exit(falhas ? 1 : 0);
