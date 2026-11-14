@@ -372,3 +372,12 @@ export async function recomecarComPlanilha(ctx) {
 }
 
 export const marcarCasa = (ctx, campos) => aplicar(ctx.dados, [{ casa: campos }]);
+
+/** Sobra real informada no começo de uma quinzena (chave 'AAAA-MM-q'); null apaga */
+export function definirSobra(ctx, chave, valor) {
+  const sobras = { ...(ctx.dados.casa.sobras || {}) };
+  if (valor == null) delete sobras[chave]; else sobras[chave] = valor;
+  const [a, m, q] = chave.split('-');
+  return aplicar(ctx.dados, [{ casa: { sobras } },
+    atividade(ctx, valor == null ? 'apagouSobra' : 'informouSobra', { colecao: 'casa', id: chave, descricao: `Sobra no começo da ${q}ª quinzena de ${m}/${a}`, valor })]);
+}

@@ -184,5 +184,11 @@ ok(rv.find(r => r.competencia === '2026-10').valor === 2381.60 && rv.find(r => r
 const rv2 = M.receitasNoPeriodo([{ ...valeR }], [], ['2026-11']).find(r => r.ref === '2026-11');
 ok(rv2.data === '2026-11-13' && rv2.quinzena === 2, 'vale do dia 15 (domingo) cai sexta 13, mas segue na 2ª quinzena');
 
+const pqs = M.painelQuinzenas([{ competencia: '2026-11', quinzena: 2, valor: 2601.60 }, { competencia: '2026-12', quinzena: 1, valor: 707 }],
+  [{ competencia: '2026-11', quinzena: 2, valor: 2000, status: 'pendente' }, { competencia: '2026-12', quinzena: 1, valor: 500, status: 'pendente' }],
+  ['2026-11', '2026-12'], 0, { '2026-11-2': 448.17 });
+ok(pqs[0].veio === null && pqs[1].veio === 448.17 && Math.abs(pqs[1].saldoFinal - 1049.77) < 0.001
+  && Math.abs(pqs[2].veio - 1049.77) < 0.001 && Math.abs(pqs[2].saldoFinal - 1256.77) < 0.001, 'sobra informada passa para a quinzena e para as seguintes');
+
 console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTudo certo');
 process.exit(falhas ? 1 : 0);

@@ -196,8 +196,13 @@ export const pagoComExtra = l => l.status === 'pago' && !!l.pagoCom;
 export const DE_ONDE_EXTRA = ['Abono', 'PLR', 'Férias', '13º', 'Reserva', 'Outro'];
 
 // ── Painel de quinzenas (saldo carregando de uma quinzena para a outra) ──
-export function painelQuinzenas(receitas, lancamentos, comps, saldoInicial = 0) {
-  let acumulado = cent(saldoInicial);
+/**
+ * `sobras`: saldo real informado no começo de uma quinzena { 'AAAA-MM-q': valor } (ex.: o que sobrou na conta da quinzena anterior).
+ * A partir da primeira sobra informada, o que sobra (ou falta) de uma quinzena passa para a seguinte (`veio`), e
+ * `saldoFinal` = veio + entra − sai. Antes disso, cada quinzena vale sozinha.
+ */
+export function painelQuinzenas(receitas, lancamentos, comps, saldoInicial = 0, sobras = {}) {
+  let acumulado = cent(saldoInicial), corrente = null;
   return comps.flatMap(comp => [1, 2].map(q => {
     const rs = receitas.filter(r => r.competencia === comp && r.quinzena === q);
     const receita = rs.reduce((s, r) => s + cent(r.valor), 0);
@@ -207,8 +212,13 @@ export function painelQuinzenas(receitas, lancamentos, comps, saldoInicial = 0) 
     const gastos = itens.reduce((s, l) => s + cent(l.valor), 0);
     const pago = itens.filter(l => l.status === 'pago').reduce((s, l) => s + cent(l.valor), 0);
     acumulado += receita - gastos;
+    const chave = `${comp}-${q}`, informada = sobras[chave] != null;
+    if (informada) corrente = cent(sobras[chave]);
+    const veio = corrente;
+    if (corrente != null) corrente += receita - gastos;
     return { comp, quinzena: q, receita: reais(receita), temPrevisao: rs.some(r => r.previsto),
-      gastos: reais(gastos), extras: reais(extras), aPagar: reais(gastos - pago), saldo: reais(receita - gastos), acumulado: reais(acumulado) };
+      gastos: reais(gastos), extras: reais(extras), aPagar: reais(gastos - pago), saldo: reais(receita - gastos), acumulado: reais(acumulado),
+      veio: veio == null ? null : reais(veio), veioInformado: informada, saldoFinal: reais((veio ?? 0) + receita - gastos) };
   }));
 }
 
@@ -604,10 +614,10 @@ export function alertas(d, hoje, { diasAntes = 1 } = {}) {
   // quinzena atual e a próxima no vermelho (só no app, para não repetir todo dia no celular)
   const ini = d.casa?.inicioControle && d.casa.inicioControle < comp ? d.casa.inicioControle : comp;
   const comps = []; for (let c = ini; c <= somarMesesComp(comp, 1); c = somarMesesComp(c, 1)) comps.push(c);
-  const painel = painelQuinzenas(receitasNoPeriodo(d.fontes || [], d.entradas || [], comps), doCaixa(d.lancamentos, d.formas), comps);
+  const painel = painelQuinzenas(receitasNoPeriodo(d.fontes || [], d.entradas || [], comps), doCaixa(d.lancamentos, d.formas), comps, 0, d.casa?.sobras || {});
   const qAtual = quinzenaDe(hoje), i = painel.findIndex(p => p.comp === comp && p.quinzena === qAtual);
-  for (const p of painel.slice(i, i + 2)) if (p && p.saldo < 0) out.push({ id: `quinzena-${p.comp}-${p.quinzena}`, nivel: 'atencao', push: false, link: '#/quinzenas',
-    titulo: `${p.quinzena}ª quinzena de ${MESES_TXT[Number(p.comp.slice(5, 7)) - 1]} no vermelho`, texto: `Faltam ${brlTxt(-p.saldo)} para fechar as contas dela.` });
+  for (const p of painel.slice(i, i + 2)) if (p && p.saldoFinal < 0) out.push({ id: `quinzena-${p.comp}-${p.quinzena}`, nivel: 'atencao', push: false, link: '#/quinzenas',
+    titulo: `${p.quinzena}ª quinzena de ${MESES_TXT[Number(p.comp.slice(5, 7)) - 1]} no vermelho`, texto: `Faltam ${brlTxt(-p.saldoFinal)} para fechar as contas dela.` });
 
   const revisar = (d.recorrentes || []).filter(r => r.assinatura && assinaturaAtiva(r, comp) && precisaRevisar(r, hoje));
   if (revisar.length) out.push({ id: 'assinaturas', nivel: 'info', push: false, link: '#/assinaturas',

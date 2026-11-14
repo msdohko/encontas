@@ -15,7 +15,7 @@ export const receitasDe = (ctx, comps) => M.receitasNoPeriodo(ctx.dados.fontes, 
 
 export function painelDoMes(ctx) {
   const comps = competenciasAte(ctx.dados, ctx.comp);
-  return M.painelQuinzenas(receitasDe(ctx, comps), M.doCaixa(ctx.dados.lancamentos, ctx.dados.formas), comps).slice(-2);
+  return M.painelQuinzenas(receitasDe(ctx, comps), M.doCaixa(ctx.dados.lancamentos, ctx.dados.formas), comps, 0, ctx.dados.casa?.sobras || {}).slice(-2);
 }
 
 /** O que precisa de uma resposta rápida: salário que caiu, conta de valor variável que chegou */
@@ -40,8 +40,9 @@ function metade(p, rotulo, fonte) {
       <div><dt>Entra${p.temPrevisao ? '<sup title="Inclui valor previsto">*</sup>' : ''}</dt><dd>${brl(p.receita)}</dd></div>
       <div><dt>Sai</dt><dd>${brl(p.gastos)}</dd></div>
       <div><dt>A pagar</dt><dd>${brl(p.aPagar)}</dd></div>
+      ${p.veio != null ? `<div><dt>De antes</dt><dd>${p.veio < 0 ? '−' : '+'} ${brl(Math.abs(p.veio))}</dd></div>` : ''}
     </dl>
-    <p class="envelope__sobra ${sinal(p.saldo)}"><span>${p.saldo < 0 ? 'Falta' : 'Sobra'}</span><strong>${brl(Math.abs(p.saldo))}</strong></p>
+    <p class="envelope__sobra ${sinal(p.saldoFinal)}"><span>${p.saldoFinal < 0 ? 'Falta' : 'Sobra'}</span><strong>${brl(Math.abs(p.saldoFinal))}</strong></p>
     ${p.extras > 0.004 ? `<small class="envelope__extra">+ ${brl(p.extras)} pagos com dinheiro extra</small>` : ''}
   </section>`;
 }
@@ -85,9 +86,9 @@ export function render(ctx) {
       ${metade(q1, '1ª quinzena', fonteQ(1))}
       <div class="envelope__corte" aria-hidden="true"></div>
       ${metade(q2, '2ª quinzena', fonteQ(2))}
-      <footer class="envelope__acumulado ${sinal(q2.acumulado)}">
-        <span>Saldo acumulado no fim de ${nomeMesCurto(ctx.comp)}</span><strong>${brl(q2.acumulado)}</strong>
-      </footer>
+      ${q2.veio != null ? `<footer class="envelope__acumulado ${sinal(q2.saldoFinal)}">
+        <span>${q2.saldoFinal < 0 ? 'Vai faltar' : 'Deve sobrar na conta'} no fim de ${nomeMesCurto(ctx.comp)}</span><strong>${brl(Math.abs(q2.saldoFinal))}</strong>
+      </footer>` : ''}
       ${q1.temPrevisao || q2.temPrevisao ? '<p class="envelope__nota">* inclui salário previsto pela média dos últimos 3 meses</p>' : ''}
     </div>
     <div class="inicio-listas">
