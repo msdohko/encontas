@@ -177,5 +177,9 @@ ok(M.alertas(dAl, '2026-11-20', {}).some(a => a.id === 'vale-vm' && a.push), 'al
 const tn = M.textoNotificacao(al);
 ok(tn && tn.titulo.startsWith('1 conta atrasada') && tn.corpo.includes('Vence amanhã'), 'texto da notificação junta os alertas');
 
+const valeR = { id: 'vale', tipo: 'fixa', valor: 2601.60, dia: 15, inicio: '2026-01', historicoValor: [{ ate: '2026-10', valor: 2381.60 }] };
+const rv = M.receitasNoPeriodo([valeR], [], ['2026-10', '2026-11']);
+ok(rv.find(r => r.competencia === '2026-10').valor === 2381.60 && rv.find(r => r.competencia === '2026-11').valor === 2601.60, 'reajuste do vale: outubro antigo, novembro novo');
+
 console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTudo certo');
 process.exit(falhas ? 1 : 0);

@@ -20,6 +20,8 @@ export const CADASTROS = {
       { n: 'pessoa', r: 'De quem é', sugestoes: pessoasDaCasa(ctx.dados), ph: 'Ex.: Eduardo' },
       { n: 'tipo', r: 'Como entra', t: 'opcoes', obrig: true, padrao: 'variavel', op: Object.entries(TIPO_FONTE) },
       { n: 'valor', r: 'Valor', t: 'dinheiro', se: v => v.tipo === 'fixa', obrig: true },
+      { n: 'valorDesde', r: 'Se mudou o valor, vale a partir de', t: 'mes', padrao: mesAtual(ctx), se: v => v.tipo === 'fixa',
+        ajuda: 'Reajuste ou dissídio: os meses antes disso continuam com o valor antigo.' },
       { n: 'valorEst', r: 'Valor estimado', t: 'dinheiro', se: v => v.tipo === 'variavel', ajuda: 'Usado só até existirem valores confirmados.' },
       { n: 'dia', r: 'Dia em que cai', t: 'dia', se: v => v.tipo !== 'eventual', obrig: true,
         ajuda: 'Do dia 25 em diante, o dinheiro paga a 1ª quinzena do mês seguinte.' },
@@ -27,15 +29,20 @@ export const CADASTROS = {
     ],
     valores: f => ({ ...f, valorEst: f.tipo === 'variavel' ? f.valor : null }),
     salvar: (ctx, obj, v) => {
-      const o = { ...obj, ...v, valor: v.tipo === 'variavel' ? (v.valorEst || 0) : v.tipo === 'fixa' ? v.valor : 0,
+      // reajuste de fonte fixa: guarda o valor antigo até o mês anterior ao novo
+      const reajuste = obj.id && obj.tipo === 'fixa' && v.tipo === 'fixa' && Math.round((obj.valor || 0) * 100) !== Math.round((v.valor || 0) * 100);
+      const historicoValor = reajuste
+        ? [...(obj.historicoValor || []).filter(h => h.ate < M.somarMesesComp(v.valorDesde || mesAtual(ctx), -1)), { ate: M.somarMesesComp(v.valorDesde || mesAtual(ctx), -1), valor: obj.valor }]
+        : obj.historicoValor || [];
+      const o = { ...obj, ...v, historicoValor, valor: v.tipo === 'variavel' ? (v.valorEst || 0) : v.tipo === 'fixa' ? v.valor : 0,
         dia: v.tipo === 'eventual' ? null : v.dia, inicio: obj.inicio || mesAtual(ctx), id: obj.id || novoId() };
-      delete o.valorEst;
+      delete o.valorEst; delete o.valorDesde;
       return A.salvarSimples(ctx, 'fontes', o);
     },
     excluir: (ctx, o) => A.excluirSimples(ctx, 'fontes', o.id),
     linha: (ctx, f) => ({
       nome: f.nome, sub: [f.pessoa, TIPO_FONTE[f.tipo], f.dia ? `dia ${f.dia}` : null, f.ativo === false ? 'inativa' : null].filter(Boolean).join(', '),
-      valor: f.tipo === 'eventual' ? 'quando entrar' : (f.tipo === 'variavel' ? '≈ ' : '') + brl(M.estimativaFonte(f, ctx.dados.entradas)),
+      valor: f.tipo === 'eventual' ? 'quando entrar' : (f.tipo === 'variavel' ? '≈ ' : '') + brl(M.estimativaFonte(f, ctx.dados.entradas, mesAtual(ctx))),
     }),
     lista: d => d.fontes,
   },

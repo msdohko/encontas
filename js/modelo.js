@@ -119,12 +119,18 @@ export function destinoEntrada(dataISO) {
 }
 
 /** Valor previsto de uma fonte: fixa = valor; variável = média dos últimos 3 recebidos (ou o valor estimado) */
-export function estimativaFonte(fonte, entradas) {
-  if (fonte.tipo === 'fixa') return fonte.valor || 0;
+export function estimativaFonte(fonte, entradas, ref = null) {
+  if (fonte.tipo === 'fixa') return valorFixoEm(fonte, ref);
   if (fonte.tipo === 'eventual') return 0;
   const ult = entradas.filter(e => e.fonteId === fonte.id).sort((a, b) => b.data.localeCompare(a.data)).slice(0, 3);
   if (!ult.length) return fonte.valor || 0;
   return reais(Math.round(ult.reduce((s, e) => s + cent(e.valor), 0) / ult.length));
+}
+
+/** Valor de uma fonte fixa num mês: reajustes guardam o valor antigo em historicoValor [{ ate: 'AAAA-MM', valor }] */
+export function valorFixoEm(fonte, ref) {
+  if (ref) for (const h of [...(fonte.historicoValor || [])].sort((a, b) => a.ate.localeCompare(b.ate))) if (ref <= h.ate) return h.valor;
+  return fonte.valor || 0;
 }
 
 /**
@@ -144,7 +150,7 @@ export function receitasNoPeriodo(fontes, entradas, comps) {
       if ((f.inicio && ref < f.inicio) || (f.fim && ref > f.fim)) continue;
       const data = dataNoMes(ref, f.dia), dest = destinoEntrada(data);
       if (!alvo.has(dest.competencia) || entradas.some(e => e.fonteId === f.id && e.ref === ref)) continue;
-      out.push({ fonteId: f.id, ref, data, ...dest, valor: estimativaFonte(f, entradas), pessoa: f.pessoa,
+      out.push({ fonteId: f.id, ref, data, ...dest, valor: estimativaFonte(f, entradas, ref), pessoa: f.pessoa,
         previsto: f.tipo === 'variavel', aConfirmar: f.tipo === 'variavel' });
     }
   }
